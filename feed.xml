@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
+    <title>Documentación ASI</title>
+    <link href="https://Marper456.github.io/2damasi/feed.xml" rel="self" />
+    <link href="https://Marper456.github.io/2damasi" />
+    <updated>2025-09-25T22:15:54+02:00</updated>
+    <author>
+        <name>Mario Pérez Garro</name>
+    </author>
+    <id>https://Marper456.github.io/2damasi</id>
+
+    <entry>
+        <title>Prueba2</title>
+        <author>
+            <name>Mario Pérez Garro</name>
+        </author>
+        <link href="https://Marper456.github.io/2damasi/prueba2.html"/>
+        <id>https://Marper456.github.io/2damasi/prueba2.html</id>
+
+        <updated>2025-09-25T22:15:54+02:00</updated>
+            <summary></summary>
+        <content></content>
+    </entry>
+    <entry>
+        <title>Prueba</title>
+        <author>
+            <name>Mario Pérez Garro</name>
+        </author>
+        <link href="https://Marper456.github.io/2damasi/prueba.html"/>
+        <id>https://Marper456.github.io/2damasi/prueba.html</id>
+
+        <updated>2025-09-25T22:15:46+02:00</updated>
+            <summary></summary>
+        <content type="html">
+            <![CDATA[
+                
+  <p>
+    
+  </p>
+            ]]>
+        </content>
+    </entry>
+</feed>

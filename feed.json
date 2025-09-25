@@ -1,0 +1,38 @@
+{
+    "version": "https://jsonfeed.org/version/1",
+    "title": "Documentación ASI",
+    "description": "",
+    "home_page_url": "https://Marper456.github.io/2damasi",
+    "feed_url": "https://Marper456.github.io/2damasi/feed.json",
+    "user_comment": "",
+    "author": {
+        "name": "Mario Pérez Garro"
+    },
+    "items": [
+        {
+            "id": "https://Marper456.github.io/2damasi/prueba2.html",
+            "url": "https://Marper456.github.io/2damasi/prueba2.html",
+            "title": "Prueba2",
+            "author": {
+                "name": "Mario Pérez Garro"
+            },
+            "tags": [
+            ],
+            "date_published": "2025-09-25T22:15:54+02:00",
+            "date_modified": "2025-09-25T22:15:54+02:00"
+        },
+        {
+            "id": "https://Marper456.github.io/2damasi/prueba.html",
+            "url": "https://Marper456.github.io/2damasi/prueba.html",
+            "title": "Prueba",
+            "content_html": "\n  <p>\n    \n  </p>",
+            "author": {
+                "name": "Mario Pérez Garro"
+            },
+            "tags": [
+            ],
+            "date_published": "2025-09-25T22:15:46+02:00",
+            "date_modified": "2025-09-25T22:15:46+02:00"
+        }
+    ]
+}

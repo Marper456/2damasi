@@ -1,0 +1,3 @@
+User-agent: *
+Disallow:
+Sitemap: https://Marper456.github.io/2damasi/sitemap.xml
