@@ -3,14 +3,14 @@
     <title>Documentación ASI</title>
     <link href="https://Marper456.github.io/2damasi/feed.xml" rel="self" />
     <link href="https://Marper456.github.io/2damasi" />
-    <updated>2025-09-26T09:11:16+02:00</updated>
+    <updated>2025-09-26T09:25:15+02:00</updated>
     <author>
         <name>Mario Pérez Garro</name>
     </author>
     <id>https://Marper456.github.io/2damasi</id>
 
     <entry>
-        <title>prueba</title>
+        <title>Documentos📕</title>
         <author>
             <name>Mario Pérez Garro</name>
         </author>
@@ -19,7 +19,12 @@
 
         <updated>2025-09-26T09:11:16+02:00</updated>
             <summary></summary>
-        <content></content>
+        <content type="html">
+            <![CDATA[
+                <figure class="post__image post__image--left"><img loading="lazy"  src="https://Marper456.github.io/2damasi/media/posts/3/documentation_9746449.png" alt="" width="104" height="104" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://Marper456.github.io/2damasi/media/posts/3/responsive/documentation_9746449-xs.png 640w ,https://Marper456.github.io/2damasi/media/posts/3/responsive/documentation_9746449-sm.png 768w ,https://Marper456.github.io/2damasi/media/posts/3/responsive/documentation_9746449-md.png 1024w ,https://Marper456.github.io/2damasi/media/posts/3/responsive/documentation_9746449-lg.png 1366w ,https://Marper456.github.io/2damasi/media/posts/3/responsive/documentation_9746449-xl.png 1600w ,https://Marper456.github.io/2damasi/media/posts/3/responsive/documentation_9746449-2xl.png 1920w"></figure>
+<p> </p>
+            ]]>
+        </content>
     </entry>
     <entry>
         <title>Prueba2</title>
