@@ -3,12 +3,33 @@
     <title>Documentación ASI</title>
     <link href="https://Marper456.github.io/2damasi/feed.xml" rel="self" />
     <link href="https://Marper456.github.io/2damasi" />
-    <updated>2025-09-26T09:30:25+02:00</updated>
+    <updated>2025-09-26T10:19:11+02:00</updated>
     <author>
         <name>Mario Pérez Garro</name>
     </author>
     <id>https://Marper456.github.io/2damasi</id>
 
+    <entry>
+        <title>Páginas Mario Pérez Garro</title>
+        <author>
+            <name>Mario Pérez Garro</name>
+        </author>
+        <link href="https://Marper456.github.io/2damasi/paginas-mario-perez-garro-2.html"/>
+        <id>https://Marper456.github.io/2damasi/paginas-mario-perez-garro-2.html</id>
+
+        <updated>2025-09-26T10:18:50+02:00</updated>
+            <summary>
+                <![CDATA[
+                    Páginas de Mario Pérez Garro: Documentación ASI
+                ]]>
+            </summary>
+        <content type="html">
+            <![CDATA[
+                <p>Páginas de Mario Pérez Garro:</p>
+<p><a href="https://marper456.github.io/2damasi/">Documentación ASI</a></p>
+            ]]>
+        </content>
+    </entry>
     <entry>
         <title>Documentos📕</title>
         <author>
@@ -16,6 +37,7 @@
         </author>
         <link href="https://Marper456.github.io/2damasi/prueba-2.html"/>
         <id>https://Marper456.github.io/2damasi/prueba-2.html</id>
+            <category term="Documentación"/>
 
         <updated>2025-09-26T09:11:16+02:00</updated>
             <summary>
@@ -37,7 +59,7 @@
         </content>
     </entry>
     <entry>
-        <title>Prueba2</title>
+        <title>Proyectos💻</title>
         <author>
             <name>Mario Pérez Garro</name>
         </author>
@@ -45,8 +67,26 @@
         <id>https://Marper456.github.io/2damasi/prueba2.html</id>
 
         <updated>2025-09-25T22:15:54+02:00</updated>
-            <summary></summary>
-        <content></content>
+            <summary>
+                <![CDATA[
+                    Todos los proyectos de la asignatura se encuentran aquí reunidos en un solo lugar. En esta sección podrás consultar el trabajo realizado por los estudiantes&hellip;
+                ]]>
+            </summary>
+        <content type="html">
+            <![CDATA[
+                <figure class="post__image"><img loading="lazy"  src="https://Marper456.github.io/2damasi/media/posts/2/collaboration_9746469.png" alt="" width="87" height="87" sizes="(min-width: 920px) 703px, (min-width: 700px) calc(82vw - 35px), calc(100vw - 81px)" srcset="https://Marper456.github.io/2damasi/media/posts/2/responsive/collaboration_9746469-xs.png 300w ,https://Marper456.github.io/2damasi/media/posts/2/responsive/collaboration_9746469-sm.png 480w ,https://Marper456.github.io/2damasi/media/posts/2/responsive/collaboration_9746469-md.png 768w ,https://Marper456.github.io/2damasi/media/posts/2/responsive/collaboration_9746469-lg.png 1024w"></figure>
+<p>Todos los proyectos de la asignatura se encuentran aquí reunidos en un solo lugar. En esta sección podrás consultar el trabajo realizado por los estudiantes y equipos, incluyendo la descripción de cada proyecto, sus objetivos, las herramientas utilizadas y, en algunos casos, enlaces a los repositorios y recursos adicionales.</p>
+<p>Este espacio está pensado para:</p>
+<ul>
+<li data-start="567" data-end="634">
+<p data-start="569" data-end="634">🔗 Compartir enlaces a código, presentaciones o demostraciones.</p>
+</li>
+<li data-start="635" data-end="690">
+<p data-start="637" data-end="690">🚀 Mostrar el progreso y los resultados alcanzados.</p>
+</li>
+</ul>
+            ]]>
+        </content>
     </entry>
     <entry>
         <title>Prueba</title>
