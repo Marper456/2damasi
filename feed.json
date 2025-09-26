@@ -13,20 +13,21 @@
         {
             "id": "https://Marper456.github.io/2damasi/herramientas.html",
             "url": "https://Marper456.github.io/2damasi/herramientas.html",
-            "title": "Herramientas",
+            "title": "Herramientas🛠️",
             "summary": "Aquí encontramos todo tipo de herramientas esenciales de la asignatura de informática. En esta sección se incluyen programas, entornos de desarrollo y aplicaciones que se&hellip;",
-            "content_html": "<p>Aquí encontramos todo tipo de herramientas esenciales de la asignatura de informática. En esta sección se incluyen programas, entornos de desarrollo y aplicaciones que se utilizan en las prácticas y proyectos, como editores de código, sistemas de control de versiones. Además, se ofrecen breves descripciones de cada herramienta</p>",
+            "content_html": "<figure class=\"post__image\"><img loading=\"lazy\"  src=\"https://Marper456.github.io/2damasi/media/posts/6/tools_878418.png\" alt=\"\" width=\"88\" height=\"88\" sizes=\"(min-width: 920px) 703px, (min-width: 700px) calc(82vw - 35px), calc(100vw - 81px)\" srcset=\"https://Marper456.github.io/2damasi/media/posts/6/responsive/tools_878418-xs.png 300w ,https://Marper456.github.io/2damasi/media/posts/6/responsive/tools_878418-sm.png 480w ,https://Marper456.github.io/2damasi/media/posts/6/responsive/tools_878418-md.png 768w ,https://Marper456.github.io/2damasi/media/posts/6/responsive/tools_878418-lg.png 1024w\"></figure>\n<p>Aquí encontramos todo tipo de herramientas esenciales de la asignatura de informática. En esta sección se incluyen programas, entornos de desarrollo y aplicaciones que se utilizan en las prácticas y proyectos, como editores de código, sistemas de control de versiones. Además, se ofrecen breves descripciones de cada herramienta</p>",
             "author": {
                 "name": "Mario Pérez Garro"
             },
             "tags": [
+                   "Herramientas y Proyectos"
             ],
             "date_published": "2025-09-26T10:33:34+02:00",
-            "date_modified": "2025-09-26T10:33:34+02:00"
+            "date_modified": "2025-09-26T10:47:35+02:00"
         },
         {
-            "id": "https://Marper456.github.io/2damasi/prueba-2.html",
-            "url": "https://Marper456.github.io/2damasi/prueba-2.html",
+            "id": "https://Marper456.github.io/2damasi/documentos.html",
+            "url": "https://Marper456.github.io/2damasi/documentos.html",
             "title": "Documentos📕",
             "summary": "Aquí se guardará toda la documentación relacionada con la asignatura: apuntes, proyectos, guías de uso de herramientas y recursos complementarios. El objetivo es contar con&hellip;",
             "content_html": "<figure class=\"post__image post__image--left\"><img loading=\"lazy\"  src=\"https://Marper456.github.io/2damasi/media/posts/3/documentation_9746449.png\" alt=\"\" width=\"104\" height=\"104\" sizes=\"(min-width: 920px) 703px, (min-width: 700px) calc(82vw - 35px), calc(100vw - 81px)\" srcset=\"https://Marper456.github.io/2damasi/media/posts/3/responsive/documentation_9746449-xs.png 300w ,https://Marper456.github.io/2damasi/media/posts/3/responsive/documentation_9746449-sm.png 480w ,https://Marper456.github.io/2damasi/media/posts/3/responsive/documentation_9746449-md.png 768w ,https://Marper456.github.io/2damasi/media/posts/3/responsive/documentation_9746449-lg.png 1024w\"></figure>\n<p> </p>\n<p> </p>\n<p> </p>\n<p data-start=\"208\" data-end=\"515\">Aquí se guardará toda la documentación relacionada con la asignatura: apuntes, proyectos, guías de uso de herramientas y recursos complementarios. El objetivo es contar con un espacio centralizado donde estudiantes y docentes puedan consultar, compartir y organizar el material de forma clara y accesible.</p>\n<p data-start=\"517\" data-end=\"545\">En este sitio encontrarás:</p>\n<p data-start=\"517\" data-end=\"545\">✅ Documentación teórica sobre los temas vistos en clase.</p>\n<p data-start=\"517\" data-end=\"545\">✅ Recursos adicionales como manuales, tutoriales y videos de apoyo.</p>",
@@ -37,11 +38,11 @@
                    "Documentación"
             ],
             "date_published": "2025-09-26T09:11:16+02:00",
-            "date_modified": "2025-09-26T10:06:52+02:00"
+            "date_modified": "2025-09-26T10:49:55+02:00"
         },
         {
-            "id": "https://Marper456.github.io/2damasi/prueba2.html",
-            "url": "https://Marper456.github.io/2damasi/prueba2.html",
+            "id": "https://Marper456.github.io/2damasi/proyectos.html",
+            "url": "https://Marper456.github.io/2damasi/proyectos.html",
             "title": "Proyectos💻",
             "summary": "Todos los proyectos de la asignatura se encuentran aquí reunidos en un solo lugar. En esta sección podrás consultar el trabajo realizado por los estudiantes&hellip;",
             "content_html": "<figure class=\"post__image\"><img loading=\"lazy\"  src=\"https://Marper456.github.io/2damasi/media/posts/2/collaboration_9746469.png\" alt=\"\" width=\"87\" height=\"87\" sizes=\"(min-width: 920px) 703px, (min-width: 700px) calc(82vw - 35px), calc(100vw - 81px)\" srcset=\"https://Marper456.github.io/2damasi/media/posts/2/responsive/collaboration_9746469-xs.png 300w ,https://Marper456.github.io/2damasi/media/posts/2/responsive/collaboration_9746469-sm.png 480w ,https://Marper456.github.io/2damasi/media/posts/2/responsive/collaboration_9746469-md.png 768w ,https://Marper456.github.io/2damasi/media/posts/2/responsive/collaboration_9746469-lg.png 1024w\"></figure>\n<p>Todos los proyectos de la asignatura se encuentran aquí reunidos en un solo lugar. En esta sección podrás consultar el trabajo realizado por los estudiantes y equipos, incluyendo la descripción de cada proyecto, sus objetivos, las herramientas utilizadas y, en algunos casos, enlaces a los repositorios y recursos adicionales.</p>\n<p>Este espacio está pensado para:</p>\n<ul>\n<li data-start=\"567\" data-end=\"634\">\n<p data-start=\"569\" data-end=\"634\">🔗 Compartir enlaces a código, presentaciones o demostraciones.</p>\n</li>\n<li data-start=\"635\" data-end=\"690\">\n<p data-start=\"637\" data-end=\"690\">🚀 Mostrar el progreso y los resultados alcanzados.</p>\n</li>\n</ul>",
@@ -51,21 +52,22 @@
             "tags": [
             ],
             "date_published": "2025-09-25T22:15:54+02:00",
-            "date_modified": "2025-09-26T10:12:53+02:00"
+            "date_modified": "2025-09-26T10:49:44+02:00"
         },
         {
-            "id": "https://Marper456.github.io/2damasi/prueba.html",
-            "url": "https://Marper456.github.io/2damasi/prueba.html",
+            "id": "https://Marper456.github.io/2damasi/glosario.html",
+            "url": "https://Marper456.github.io/2damasi/glosario.html",
             "title": "Glosario📄",
             "summary": "Aquí encontraremos un artículo tipo diccionario que explique de forma clara los conceptos clave de la asignatura de informática. Cada término está definido de manera&hellip;",
-            "content_html": "\n  <p>\n    Aquí encontraremos un artículo tipo diccionario que explique de forma clara los conceptos clave de la asignatura de informática. Cada término está definido de manera sencilla para facilitar su comprensión, y se incluyen ejemplos prácticos cuando sea necesario.<br><br>Este espacio está pensado para consultas rápidas\n  </p>\n\n  <p>\n    Con este glosario, podrás tener a mano una referencia rápida de los conceptos más importantes de la materia.\n  </p>",
+            "content_html": "\n    <figure class=\"post__image post__image--center\">\n      <img loading=\"lazy\" src=\"https://Marper456.github.io/2damasi/media/posts/1/portfolio_9865214-1.png\" height=\"88\" width=\"88\" alt=\"\"  sizes=\"(min-width: 920px) 703px, (min-width: 700px) calc(82vw - 35px), calc(100vw - 81px)\" srcset=\"https://Marper456.github.io/2damasi/media/posts/1/responsive/portfolio_9865214-1-xs.png 300w ,https://Marper456.github.io/2damasi/media/posts/1/responsive/portfolio_9865214-1-sm.png 480w ,https://Marper456.github.io/2damasi/media/posts/1/responsive/portfolio_9865214-1-md.png 768w ,https://Marper456.github.io/2damasi/media/posts/1/responsive/portfolio_9865214-1-lg.png 1024w\">\n      \n    </figure>\n\n  <p>\n    Aquí encontraremos un artículo tipo diccionario que explique de forma clara los conceptos clave de la asignatura de informática. Cada término está definido de manera sencilla para facilitar su comprensión, y se incluyen ejemplos prácticos cuando sea necesario.<br><br>Este espacio está pensado para consultas rápidas\n  </p>\n\n  <p>\n    Con este glosario, podrás tener a mano una referencia rápida de los conceptos más importantes de la materia.\n  </p>",
             "author": {
                 "name": "Mario Pérez Garro"
             },
             "tags": [
+                   "Documentación"
             ],
             "date_published": "2025-09-25T22:15:46+02:00",
-            "date_modified": "2025-09-26T10:34:00+02:00"
+            "date_modified": "2025-09-26T10:49:32+02:00"
         }
     ]
 }
