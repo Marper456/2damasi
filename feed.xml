@@ -3,7 +3,7 @@
     <title>Documentación ASI</title>
     <link href="https://Marper456.github.io/2damasi/feed.xml" rel="self" />
     <link href="https://Marper456.github.io/2damasi" />
-    <updated>2025-09-26T10:49:55+02:00</updated>
+    <updated>2025-09-26T11:02:38+02:00</updated>
     <author>
         <name>Mario Pérez Garro</name>
     </author>
@@ -27,7 +27,11 @@
         <content type="html">
             <![CDATA[
                 <figure class="post__image"><img loading="lazy"  src="https://Marper456.github.io/2damasi/media/posts/6/tools_878418.png" alt="" width="88" height="88" sizes="(min-width: 920px) 703px, (min-width: 700px) calc(82vw - 35px), calc(100vw - 81px)" srcset="https://Marper456.github.io/2damasi/media/posts/6/responsive/tools_878418-xs.png 300w ,https://Marper456.github.io/2damasi/media/posts/6/responsive/tools_878418-sm.png 480w ,https://Marper456.github.io/2damasi/media/posts/6/responsive/tools_878418-md.png 768w ,https://Marper456.github.io/2damasi/media/posts/6/responsive/tools_878418-lg.png 1024w"></figure>
-<p>Aquí encontramos todo tipo de herramientas esenciales de la asignatura de informática. En esta sección se incluyen programas, entornos de desarrollo y aplicaciones que se utilizan en las prácticas y proyectos, como editores de código, sistemas de control de versiones. Además, se ofrecen breves descripciones de cada herramienta</p>
+<p>Aquí encontramos todo tipo de herramientas esenciales de la asignatura de informática. En esta sección se incluyen programas, entornos de desarrollo y aplicaciones que se utilizan en las prácticas y proyectos, como editores de código, sistemas de control de versiones. Además, se ofrecen breves descripciones de cada herramienta.</p>
+<ul>
+<li><a href="https://github.com/">😺Github</a>: Plataforma en línea que aloja repositorios Git, facilitando la colaboración, el almacenamiento y la gestión de proyectos de software.</li>
+<li><a href="https://git-scm.com/">🔧Git</a>: Sistema de control de versiones que permite llevar un historial de cambios en el código y trabajar de forma colaborativa.</li>
+</ul>
             ]]>
         </content>
     </entry>
@@ -38,16 +42,19 @@
         </author>
         <link href="https://Marper456.github.io/2damasi/documentos.html"/>
         <id>https://Marper456.github.io/2damasi/documentos.html</id>
+        <media:content url="https://Marper456.github.io/2damasi/media/posts/3/PRESUPUESTO-MONTAJE-SERVIDOR-IA-MARIO-PEREZ-GARRO-2-DAM.pdf" medium="image" />
             <category term="Documentación"/>
 
         <updated>2025-09-26T09:11:16+02:00</updated>
             <summary>
                 <![CDATA[
+                        <img src="https://Marper456.github.io/2damasi/media/posts/3/PRESUPUESTO-MONTAJE-SERVIDOR-IA-MARIO-PEREZ-GARRO-2-DAM.pdf" alt="" />
                     Aquí se guardará toda la documentación relacionada con la asignatura: apuntes, proyectos, guías de uso de herramientas y recursos complementarios. El objetivo es contar con&hellip;
                 ]]>
             </summary>
         <content type="html">
             <![CDATA[
+                    <p><img src="https://Marper456.github.io/2damasi/media/posts/3/PRESUPUESTO-MONTAJE-SERVIDOR-IA-MARIO-PEREZ-GARRO-2-DAM.pdf" class="type:primaryImage" alt="" /></p>
                 <figure class="post__image post__image--left"><img loading="lazy"  src="https://Marper456.github.io/2damasi/media/posts/3/documentation_9746449.png" alt="" width="104" height="104" sizes="(min-width: 920px) 703px, (min-width: 700px) calc(82vw - 35px), calc(100vw - 81px)" srcset="https://Marper456.github.io/2damasi/media/posts/3/responsive/documentation_9746449-xs.png 300w ,https://Marper456.github.io/2damasi/media/posts/3/responsive/documentation_9746449-sm.png 480w ,https://Marper456.github.io/2damasi/media/posts/3/responsive/documentation_9746449-md.png 768w ,https://Marper456.github.io/2damasi/media/posts/3/responsive/documentation_9746449-lg.png 1024w"></figure>
 <p> </p>
 <p> </p>
@@ -56,6 +63,8 @@
 <p data-start="517" data-end="545">En este sitio encontrarás:</p>
 <p data-start="517" data-end="545">✅ Documentación teórica sobre los temas vistos en clase.</p>
 <p data-start="517" data-end="545">✅ Recursos adicionales como manuales, tutoriales y videos de apoyo.</p>
+<p data-start="517" data-end="545"> </p>
+<p data-start="517" data-end="545"> </p>
             ]]>
         </content>
     </entry>
@@ -66,6 +75,7 @@
         </author>
         <link href="https://Marper456.github.io/2damasi/proyectos.html"/>
         <id>https://Marper456.github.io/2damasi/proyectos.html</id>
+            <category term="Herramientas y Proyectos"/>
 
         <updated>2025-09-25T22:15:54+02:00</updated>
             <summary>
