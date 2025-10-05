@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suelo de Ajedrez 3D con Física: Peones y Contadores</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            color: white;
+            /* Fondo para ambientación, ahora el tablero es el suelo principal */
+            background-color: #2c3e50; 
+        }
+        canvas {
+            display: block;
+        }
+        /* Contador Total - Ahora en la esquina superior derecha */
+        #info-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            left: auto; /* Desactivar left: 50% */
+            transform: none; /* Desactivar transform */
+            text-align: center;
+            background-color: rgba(0, 0, 0, 0.75); 
+            padding: 15px 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            z-index: 10;
+        }
+        
+        /* Nuevo Panel de Comparación - Esquina superior izquierda */
+        #comparison-container {
+            position: absolute;
+            top: 20px;
+            left: 20px; 
+            width: 250px;
+            text-align: left;
+            background-color: rgba(0, 0, 0, 0.75); /* Fondo semitransparente */
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            z-index: 10;
+        }
+        #comparison-container h2 {
+            margin: 0 0 10px 0;
+            font-size: 1.2rem;
+            color: #2ecc71; /* Verde brillante */
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 5px;
+        }
+        #comparison-container p {
+            margin: 5px 0;
+            font-size: 0.9rem;
+        }
+        #comparison-result {
+            font-weight: 700;
+            margin-top: 10px;
+            padding-top: 5px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.1);
+            color: #f1c40f; /* Color neutro inicial */
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 700;
+            color: #ecf0f1; 
+        }
+        p {
+            margin: 5px 0 0;
+            font-size: 0.9rem;
+            color: #bdc3c7;
+        }
+        #controls-row {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            z-index: 10;
+        }
+        #button-container {
+            /* Contiene todos los botones en una fila */
+            display: flex;
+            gap: 20px;
+        }
+        .piece-button {
+            padding: 15px 25px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            outline: none;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            min-width: 150px;
+            white-space: nowrap; 
+        }
+        
+        /* Estilos Dinámicos y Fijos */
+        
+        #add-female-button { 
+            background: linear-gradient(45deg, #e91e63, #c2185b); 
+        }
+        #add-female-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(233, 30, 99, 0.8);
+        }
+        
+        #add-male-button { 
+            background: linear-gradient(45deg, #3498db, #2980b9); 
+            color: white;
+        }
+        #add-male-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(52, 152, 219, 0.6);
+        }
+        
+        #toggle-theme-button {
+            background: linear-gradient(45deg, #2ecc71, #27ae60); /* Verde para cambiar */
+            color: white;
+        }
+        #toggle-theme-button:hover {
+             transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(46, 204, 113, 0.6);
+        }
+
+
+        #remove-piece-button {
+            background: linear-gradient(45deg, #95a5a6, #7f8c8d); 
+            color: white;
+        }
+        #remove-piece-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(149, 165, 166, 0.5);
+        }
+
+        #reset-button {
+            background: linear-gradient(45deg, #e67e22, #d35400); 
+            color: white;
+        }
+        #reset-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(230, 126, 34, 0.6);
+        }
+        
+        .piece-button:active, #toggle-theme-button:active {
+            transform: translateY(1px);
+        }
+        #instructions {
+            position: absolute;
+            bottom: 110px;
+            width: 100%;
+            text-align: center;
+            color: #95a5a6;
+            font-size: 0.9rem;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="info-container">
+        <h1 id="counter">0</h1>
+        <p>¡Piezas totales lanzadas!</p>
+    </div>
+
+    <!-- Contenedor de Comparación de Población -->
+    <div id="comparison-container">
+        <h2>Recuento por Tipo</h2>
+        <div id="counts">
+            <p id="male-count">Hombres (Azul): 0</p>
+            <p id="female-count">Mujeres (Rosa): 0</p>
+        </div>
+        <p id="comparison-result">Balance: Igual</p>
+    </div>
+    
+    <div id="controls-row">
+        <div id="button-container">
+            <button id="toggle-theme-button" class="piece-button">Cambiar Escenario: Ajedrez</button>
+            <button id="add-male-button" class="piece-button">Contar Hombre (Azul)</button>
+            <button id="add-female-button" class="piece-button">Contar Mujer (Rosa)</button>
+            <button id="remove-piece-button" class="piece-button">Descontar Pieza</button>
+            <button id="reset-button" class="piece-button">Reiniciar Simulación</button>
+        </div>
+    </div>
+    <div id="instructions">Usa el ratón para rotar y hacer zoom (Controles Orbit)</div>
+
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.157.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        
+        // Cargamos Cannon.js de forma síncrona
+        const cannonScript = document.createElement('script');
+        cannonScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js';
+        document.head.appendChild(cannonScript);
+
+        cannonScript.onload = () => {
+            console.log("Cannon.js cargado. Iniciando simulación 3D...");
+            
+            // --- CONSTANTES Y VARIABLES GLOBALES ---
+            let scene, camera, renderer, controls, world;
+            // Array principal para rastrear todas las piezas, incluyendo su tipo
+            let pieces = []; // [{ mesh: THREE.Group, body: CANNON.Body, type: 'male' | 'female' }] 
+            let floorMeshes = []; // Mallas visuales del suelo para poder cambiarlas
+            
+            let pieceCount = 0;
+            let maleCount = 0;   // Contador de piezas 'male'
+            let femaleCount = 0; // Contador de piezas 'female'
+            let currentTheme = 'chess'; // Temas: 'chess' o 'counters'
+            
+            const counterElement = document.getElementById('counter');
+            
+            // Referencias a los nuevos elementos de la UI
+            const maleCountElement = document.getElementById('male-count');
+            const femaleCountElement = document.getElementById('female-count');
+            const comparisonResultElement = document.getElementById('comparison-result');
+            
+            const maleButton = document.getElementById('add-male-button');
+            const femaleButton = document.getElementById('add-female-button');
+            const removeButton = document.getElementById('remove-piece-button');
+            const resetButton = document.getElementById('reset-button');
+            const toggleButton = document.getElementById('toggle-theme-button');
+            
+            // Dimensiones del tablero de ajedrez (8x8)
+            const SQUARE_SIZE = 2.0;
+            const BOARD_SIZE = SQUARE_SIZE * 8; // 16 unidades de ancho/largo
+            const TILE_THICKNESS = 0.1; 
+
+            // Colores
+            const LIGHT_SQUARE_COLOR = 0xffe9c4; 
+            const DARK_SQUARE_COLOR = 0x8b4513; 
+            const SURROUNDING_FLOOR_COLOR = 0x34495e; 
+            const TABLE_COLOR = 0x27ae60; // Nuevo color verde para la mesa circular
+            const EDGE_COLOR = 0x5a3f2b; // Borde de madera/marrón oscuro
+
+            // Materiales de física
+            const piecePhysMat = new CANNON.Material("piece");
+            const boardPhysMat = new CANNON.Material("board"); 
+
+            /**
+             * Inicializa la escena 3D, la cámara, el renderizador y el mundo de física.
+             */
+            function init() {
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x2c3e50); 
+
+                camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+                camera.position.set(20, 20, 20); 
+                camera.lookAt(0, 0, 0);
+
+                renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                renderer.shadowMap.enabled = true;
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                document.body.appendChild(renderer.domElement);
+
+                controls = new OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.minDistance = 5;
+                controls.maxDistance = 60;
+                controls.maxPolarAngle = Math.PI * 0.49; 
+
+                // --- Luces ---
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); 
+                scene.add(ambientLight);
+
+                const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
+                dirLight.position.set(15, 30, 15);
+                dirLight.castShadow = true;
+                
+                dirLight.shadow.mapSize.width = 4096;
+                dirLight.shadow.mapSize.height = 4096;
+                dirLight.shadow.camera.near = 0.5;
+                dirLight.shadow.camera.far = 80;
+                dirLight.shadow.camera.left = -20;
+                dirLight.shadow.camera.right = 20;
+                dirLight.shadow.camera.top = 20;
+                dirLight.shadow.camera.bottom = -20;
+                dirLight.target.position.set(0, 0, 0); 
+                scene.add(dirLight);
+                scene.add(dirLight.target);
+
+
+                // --- INICIALIZACIÓN DE CANNON.JS ---
+                world = new CANNON.World();
+                world.gravity.set(0, -9.82, 0);
+                world.broadphase = new CANNON.SAPBroadphase(world);
+                world.solver.iterations = 20; 
+                
+                // 1. Cuerpo de física Estático (El suelo físico que no cambia)
+                const floorBox = new CANNON.Box(new CANNON.Vec3(50, 0.5, 50)); 
+                const floorBody = new CANNON.Body({ 
+                    mass: 0, 
+                    material: boardPhysMat,
+                    shape: floorBox
+                });
+                floorBody.position.set(0, -0.5, 0); 
+                world.addBody(floorBody);
+                
+                setupContactMaterials();
+                
+                // 2. Inicializar la visual del suelo
+                setupFloor(currentTheme); 
+                updateThemeUI(); 
+                
+                // --- MANEJO DE EVENTOS DE BOTÓN ---
+                maleButton.addEventListener('click', () => addPiece('male'));
+                femaleButton.addEventListener('click', () => addPiece('female'));
+                removeButton.addEventListener('click', removeOldestPiece); 
+                resetButton.addEventListener('click', resetSimulation);
+                toggleButton.addEventListener('click', toggleTheme);
+            }
+
+            /**
+             * Actualiza la pantalla de comparación de género y los textos de los botones.
+             */
+            function updateComparisonDisplay() {
+                let resultText = "";
+                let resultColor = "#f1c40f"; // Amarillo (Neutral)
+                
+                // 1. Etiquetas de Recuento (SIEMPRE usando los términos del Ajedrez en el panel)
+                const maleLabel = "Hombres (Azul)";
+                const femaleLabel = "Mujeres (Rosa)";
+                
+                // 2. Etiquetas para la frase de resultado (SIEMPRE usando Hombres/Mujeres)
+                const maleResultTerm = "Hombres";
+                const femaleResultTerm = "Mujeres";
+                
+                // Aplicar etiquetas fijas al panel
+                maleCountElement.textContent = `${maleLabel}: ${maleCount}`;
+                femaleCountElement.textContent = `${femaleLabel}: ${femaleCount}`;
+                
+                // 3. Lógica de comparación
+                if (maleCount > femaleCount) {
+                    resultText = `Superioridad de ${maleResultTerm}`;
+                    resultColor = "#3498db"; // Azul
+                } else if (femaleCount > maleCount) {
+                    resultText = `Superioridad de ${femaleResultTerm}`;
+                    resultColor = "#e91e63"; // Rosa/Rojo
+                } else {
+                    resultText = "Balance: Igual";
+                    resultColor = "#2ecc71"; // Verde
+                }
+                
+                comparisonResultElement.textContent = resultText;
+                comparisonResultElement.style.color = resultColor;
+            }
+
+            /**
+             * Alterna entre el tema 'chess' y 'counters'.
+             */
+            function toggleTheme() {
+                // Limpiar la simulación y las piezas
+                resetSimulation(); 
+                
+                currentTheme = currentTheme === 'chess' ? 'counters' : 'chess';
+                
+                // Cambiar el suelo visual
+                setupFloor(currentTheme); 
+                
+                // Actualizar la interfaz (texto de botones y display de comparación)
+                updateThemeUI();
+            }
+            
+            /**
+             * Crea la visualización del tablero de ajedrez y el suelo circundante.
+             */
+            function createChessboardVisuals() {
+                const boardGroup = new THREE.Group();
+                const geometry = new THREE.BoxGeometry(SQUARE_SIZE, TILE_THICKNESS, SQUARE_SIZE); 
+
+                // 1. Crear los 64 cuadrados (Azulejos)
+                for (let i = 0; i < 8; i++) {
+                    for (let j = 0; j < 8; j++) {
+                        const isLight = (i + j) % 2 === 0;
+                        const color = isLight ? LIGHT_SQUARE_COLOR : DARK_SQUARE_COLOR;
+                        const material = new THREE.MeshStandardMaterial({ 
+                            color: color, 
+                            roughness: 0.7, 
+                            metalness: 0.2 
+                        });
+                        
+                        const square = new THREE.Mesh(geometry, material);
+                        
+                        const x = i * SQUARE_SIZE + (SQUARE_SIZE / 2) - (BOARD_SIZE / 2);
+                        const z = j * SQUARE_SIZE + (SQUARE_SIZE / 2) - (BOARD_SIZE / 2);
+                        
+                        square.position.set(x, TILE_THICKNESS / 2, z); 
+                        square.receiveShadow = true;
+                        boardGroup.add(square);
+                    }
+                }
+                
+                scene.add(boardGroup);
+                floorMeshes.push(boardGroup);
+
+                // 2. Piso de ambientación (estético)
+                const surroundingFloorGeo = new THREE.PlaneGeometry(100, 100);
+                const surroundingFloorMat = new THREE.MeshStandardMaterial({ 
+                    color: SURROUNDING_FLOOR_COLOR, 
+                    side: THREE.DoubleSide,
+                    roughness: 0.8
+                });
+                const surroundingFloorMesh = new THREE.Mesh(surroundingFloorGeo, surroundingFloorMat);
+                surroundingFloorMesh.rotation.x = -Math.PI / 2; // Rotar para que sea horizontal
+                surroundingFloorMesh.position.y = 0; 
+                surroundingFloorMesh.receiveShadow = true;
+                scene.add(surroundingFloorMesh);
+                floorMeshes.push(surroundingFloorMesh);
+            }
+
+            /**
+             * Crea la visualización de una mesa circular verde (para el modo Contadores).
+             */
+            function createCircularGreenFloor() {
+                const TABLE_RADIUS = BOARD_SIZE * 0.9; 
+                const TABLE_THICKNESS = 0.5;
+
+                // 1. La superficie verde (Cilindro plano)
+                const surfaceGeo = new THREE.CylinderGeometry(TABLE_RADIUS, TABLE_RADIUS, 0.1, 64);
+                const surfaceMat = new THREE.MeshStandardMaterial({ 
+                    color: TABLE_COLOR, 
+                    roughness: 0.8, 
+                    metalness: 0.0 
+                });
+                const surfaceMesh = new THREE.Mesh(surfaceGeo, surfaceMat);
+                surfaceMesh.receiveShadow = true;
+                surfaceMesh.position.y = 0.05; // Ligeramente sobre Y=0
+
+                scene.add(surfaceMesh);
+                floorMeshes.push(surfaceMesh);
+                
+                // 2. El borde de la mesa (Cilindro más grueso y grande para la base)
+                const edgeGeo = new THREE.CylinderGeometry(TABLE_RADIUS + 0.5, TABLE_RADIUS + 0.5, TABLE_THICKNESS, 64);
+                const edgeMat = new THREE.MeshStandardMaterial({ 
+                    color: EDGE_COLOR, 
+                    roughness: 0.5, 
+                    metalness: 0.1 
+                });
+                const edgeMesh = new THREE.Mesh(edgeGeo, edgeMat);
+                edgeMesh.receiveShadow = true;
+                edgeMesh.position.y = -(TABLE_THICKNESS / 2); 
+
+                scene.add(edgeMesh);
+                floorMeshes.push(edgeMesh);
+            }
+
+            /**
+             * Configura la visualización del suelo según el tema actual.
+             */
+            function setupFloor(theme) {
+                // 1. Limpiar mallas de piso anteriores
+                floorMeshes.forEach(mesh => scene.remove(mesh));
+                floorMeshes = [];
+
+                // 2. Crear nueva geometría visual
+                if (theme === 'chess') {
+                    createChessboardVisuals();
+                } else if (theme === 'counters') {
+                    createCircularGreenFloor();
+                }
+            }
+
+
+            /**
+             * Actualiza el texto de los botones según el tema actual y llama a la actualización de la comparación.
+             */
+            function updateThemeUI() {
+                // El texto de los botones se unifica para usar la terminología de género consistente.
+                const maleButtonText = "Contar Hombre (Azul)";
+                const femaleButtonText = "Contar Mujer (Rosa)";
+                
+                if (currentTheme === 'chess') {
+                    toggleButton.textContent = "Cambiar Escenario: Ajedrez";
+                } else {
+                    toggleButton.textContent = "Cambiar Escenario: Póker";
+                }
+                
+                // Aplicar las etiquetas consistentes a los botones
+                maleButton.textContent = maleButtonText;
+                femaleButton.textContent = femaleButtonText;
+                
+                updateComparisonDisplay(); // Se llama aquí para actualizar etiquetas en el panel
+            }
+
+
+            /**
+             * Configura los materiales de contacto entre las piezas y el tablero.
+             */
+            function setupContactMaterials() {
+                const pieceBoardContact = new CANNON.ContactMaterial(boardPhysMat, piecePhysMat, {
+                    friction: 0.7, 
+                    restitution: 0.3, 
+                });
+                world.addContactMaterial(pieceBoardContact);
+
+                const piecePieceContact = new CANNON.ContactMaterial(piecePhysMat, piecePhysMat, {
+                    friction: 0.2,
+                    restitution: 0.6 
+                });
+                world.addContactMaterial(piecePieceContact);
+            }
+
+            
+            /**
+             * Crea la malla y el cuerpo de física de una pieza (Peón o Contador) según el tema.
+             */
+            function createPiece(type) {
+                const group = new THREE.Group();
+                const pieceMass = 5; 
+                let bodyShape, pieceHeight, pieceRadius, pieceColor;
+
+                if (currentTheme === 'chess') {
+                    // --- PEÓN DE AJEDREZ ---
+                    
+                    pieceColor = type === 'male' ? 0x3498db : 0xe91e63;
+                    pieceHeight = 1.5;
+                    pieceRadius = 0.5;
+
+                    const pieceMaterial = new THREE.MeshStandardMaterial({
+                        color: pieceColor,
+                        roughness: 0.6,
+                        metalness: 0.2
+                    });
+                    
+                    const base = new THREE.Mesh(new THREE.CylinderGeometry(pieceRadius * 0.7, pieceRadius * 0.9, pieceHeight * 0.7, 16), pieceMaterial);
+                    base.position.y = pieceHeight * 0.35;
+                    base.castShadow = true;
+                    
+                    const crown = new THREE.Mesh(new THREE.SphereGeometry(pieceRadius * 0.3, 16, 16), pieceMaterial);
+                    crown.position.y = pieceHeight * 0.7 + pieceRadius * 0.3;
+                    crown.castShadow = true;
+
+                    group.add(base, crown);
+                    group.position.y = pieceHeight / 2;
+                    
+                    bodyShape = new CANNON.Cylinder(pieceRadius * 0.7, pieceRadius * 0.9, pieceHeight, 16);
+
+                } else {
+                    // --- CONTADOR (FICHA) ---
+
+                    pieceColor = type === 'male' ? 0x2980b9 : 0xc0392b; 
+                    pieceHeight = 0.2; 
+                    pieceRadius = 1.2; 
+                    
+                    const pieceMaterial = new THREE.MeshStandardMaterial({
+                        color: pieceColor,
+                        roughness: 0.3,
+                        metalness: 0.5 
+                    });
+
+                    const chip = new THREE.Mesh(new THREE.CylinderGeometry(pieceRadius, pieceRadius, pieceHeight, 32), pieceMaterial);
+                    chip.castShadow = true;
+                    
+                    group.add(chip);
+                    group.position.y = pieceHeight / 2;
+
+                    bodyShape = new CANNON.Cylinder(pieceRadius, pieceRadius, pieceHeight, 32);
+                }
+
+
+                // --- Creación del cuerpo de física común ---
+                const body = new CANNON.Body({ 
+                    mass: pieceMass, 
+                    material: piecePhysMat 
+                });
+                
+                // Necesario para orientar correctamente el cilindro de Cannon.js
+                const rotationAxis = new CANNON.Vec3(1, 0, 0);
+                const rotationAngle = Math.PI / 2;
+                body.addShape(bodyShape, new CANNON.Vec3(0, 0, 0), new CANNON.Quaternion().setFromAxisAngle(rotationAxis, rotationAngle));
+                
+                return { mesh: group, body: body };
+            }
+
+            /**
+             * Lanza una pieza (Peón o Contador) del color especificado.
+             */
+            function addPiece(type) {
+                pieceCount++;
+                counterElement.textContent = pieceCount;
+
+                // Incrementar el contador específico
+                if (type === 'male') {
+                    maleCount++;
+                } else {
+                    femaleCount++;
+                }
+
+                const piece = createPiece(type);
+                
+                // Guardar el cuerpo y la malla junto con el tipo en el array principal
+                pieces.push({ mesh: piece.mesh, body: piece.body, type: type });
+                
+                // Posiciones de lanzamiento aleatorias
+                const spawnRange = BOARD_SIZE / 2 - 2;
+                const startX = (-spawnRange / 2) + Math.random() * spawnRange; 
+                const startZ = (-spawnRange / 2) + Math.random() * spawnRange;
+                const startY = 15 + Math.random() * 5; // Altura de caída
+                
+                piece.body.position.set(startX, startY, startZ);
+                
+                // Aplicar rotación y fuerza lateral inicial aleatoria
+                const rotation = new CANNON.Vec3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).scale(currentTheme === 'counters' ? 10 : 5); 
+                piece.body.angularVelocity.set(rotation.x, rotation.y, rotation.z);
+
+                scene.add(piece.mesh);
+                world.addBody(piece.body);
+                
+                updateComparisonDisplay(); // Actualizar la pantalla de comparación
+            }
+
+            /**
+             * Elimina la pieza más antigua.
+             */
+            function removeOldestPiece() {
+                if (pieces.length > 0) {
+                    const oldestPiece = pieces.shift(); // Saca la pieza más antigua del frente del array
+
+                    // Decrementar el contador específico
+                    if (oldestPiece.type === 'male') {
+                        maleCount--;
+                    } else {
+                        femaleCount--;
+                    }
+
+                    scene.remove(oldestPiece.mesh);
+                    world.removeBody(oldestPiece.body);
+
+                    pieceCount--;
+                    counterElement.textContent = pieceCount;
+                    
+                    updateComparisonDisplay(); // Actualizar la pantalla de comparación
+                }
+            }
+
+            /**
+             * Elimina todas las piezas de la escena y reinicia los contadores.
+             */
+            function resetSimulation() {
+                // Eliminar mallas de Three.js y cuerpos de Cannon.js
+                pieces.forEach(piece => {
+                    scene.remove(piece.mesh);
+                    world.removeBody(piece.body);
+                });
+
+                // Limpiar arrays y contadores
+                pieces = [];
+                pieceCount = 0;
+                maleCount = 0;
+                femaleCount = 0;
+                counterElement.textContent = pieceCount;
+                
+                updateComparisonDisplay(); // Actualizar la pantalla de comparación
+            }
+
+
+            /**
+             * Maneja el redimensionamiento de la ventana.
+             */
+            function onWindowResize() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            const timeStep = 1 / 60; 
+
+            /**
+             * Bucle principal de animación.
+             */
+            function animate() {
+                requestAnimationFrame(animate);
+
+                world.step(timeStep);
+
+                // Sincronización de Three.js con Cannon.js usando el array de piezas
+                for (let i = 0; i < pieces.length; i++) {
+                    pieces[i].mesh.position.copy(pieces[i].body.position);
+                    pieces[i].mesh.quaternion.copy(pieces[i].body.quaternion);
+                }
+
+                controls.update();
+                renderer.render(scene, camera);
+            }
+
+            window.onload = function () {
+                init();
+                animate();
+            }
+            
+            window.addEventListener('resize', onWindowResize);
+        };
+    </script>
+</body>
+</html>
