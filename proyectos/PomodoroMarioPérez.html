@@ -1,0 +1,1772 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temporizador Pomodoro</title>
+    <!-- Carga de Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Carga de Chart.js CDN para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <style>
+        /* Configuración de la fuente Inter y variables CSS para personalización */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        
+        :root {
+            /* Colores predeterminados (Dark Mode) */
+            --bg-body: #111827; /* gray-900 */
+            --bg-app: #1f2937; /* gray-800 */
+            --bg-control: #374151; /* gray-700 */
+            --text-primary: #f9fafb; /* gray-50 */
+            --text-secondary: #d1d5db; /* gray-300 */
+            --color-work: #ef4444;    /* Rojo - predeterminado */
+            --color-short-break: #3b82f6; /* Azul - predeterminado */
+            --color-long-break: #10b981;  /* Verde */
+            --color-accent: #4f46e5;  /* Índigo - para botones de acción */
+            --color-count: #4ade80;    /* Verde Lima - Color fijo para el contador de pomodoros */
+        }
+        
+        /* Light Mode */
+        body.light-theme {
+            --bg-body: #f3f4f6; /* gray-100 */
+            --bg-app: #ffffff; /* white */
+            --bg-control: #e5e7eb; /* gray-200 */
+            --text-primary: #1f2937; /* gray-900 */
+            --text-secondary: #4b5563; /* gray-600 */
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.5s;
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+        }
+
+        /* Estilo para el gran temporizador que ahora es el tomate */
+        #tomato-visual {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            /* Usamos la variable de trabajo como borde */
+            border-color: var(--color-work); 
+            background-color: #ef444430; /* Valor inicial con opacidad */
+        }
+
+        /* Ajuste de estilo para hacer los grupos de input visibles y responsivos */
+        .settings-input-group {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end; /* Alinea los inputs a la derecha */
+        }
+        
+        /* Estilo para el checkbox de tareas */
+        #task-list input[type="checkbox"] {
+            /* Personalización del checkbox para que coincida con el tema */
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            cursor: pointer;
+            width: 1.25rem;
+            height: 1.25rem;
+            min-width: 1.25rem;
+            min-height: 1.25rem;
+            border: 2px solid var(--text-secondary);
+            border-radius: 4px;
+            transition: background-color 0.2s, border-color 0.2s;
+            display: inline-block;
+            position: relative;
+        }
+        #task-list input[type="checkbox"]:checked {
+            background-color: var(--color-accent);
+            border-color: var(--color-accent);
+        }
+        /* Símbolo de checkmark (opcional, mejora la visibilidad) */
+        #task-list input[type="checkbox"]:checked::after {
+            content: '✓';
+            color: white;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+        }
+        
+        /* Contenedor del canvas para Chart.js */
+        #focus-chart {
+            width: 100% !important;
+            height: 300px; /* Altura fija para el gráfico */
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- Selector de Idioma (Arriba a la Izquierda) -->
+    <div class="fixed top-4 left-4 z-50">
+        <select id="language-select" onchange="setLanguage(this.value)" 
+                class="p-2 border border-gray-300 rounded-lg shadow-md hover:border-blue-500 transition duration-150 ease-in-out cursor-pointer text-sm md:text-base" 
+                style="background-color: var(--bg-app); color: var(--text-primary);">
+            <option value="es">Español (ES)</option>
+            <option value="en">English (EN)</option>
+        </select>
+    </div>
+
+    <!-- Botón de Plantillas UI -->
+    <div class="fixed top-4 right-4 z-50">
+        <button id="template-modal-btn" onclick="toggleTemplateModal()" class="px-4 py-2 text-sm font-bold rounded-full text-white transition hover:opacity-90 shadow-lg" style="background-color: var(--color-accent);" data-i18n="templateBtn">
+            🎨 Plantillas UI
+        </button>
+    </div>
+
+    <!-- Modal de Selección de Plantillas -->
+    <div id="template-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="p-6 rounded-xl shadow-2xl max-w-lg w-full overflow-y-auto max-h-[90vh]" style="background-color: var(--bg-app); color: var(--text-primary);">
+            <h3 id="template-modal-title" class="text-2xl font-bold mb-4 flex justify-between items-center" style="color: var(--color-accent);">
+                Seleccionar Plantilla
+                <button id="template-modal-close" onclick="toggleTemplateModal()" class="text-3xl font-light hover:opacity-70 transition p-2 rounded-full" style="color: var(--text-secondary);">&times;</button>
+            </h3>
+            <div class="space-y-4">
+                <h4 class="text-xl font-bold mb-3" style="color: var(--color-accent);" data-i18n="templatePredefinedTitle">Plantillas Predeterminadas</h4>
+                
+                <!-- Plantilla 1: Clásico Oscuro -->
+                <button onclick="applyTemplate('classic-dark'); toggleTemplateModal()" class="w-full text-left p-4 rounded-lg border-2 hover:opacity-90 transition" style="background-color: #2b3543; border-color: #ef4444; color: white;">
+                    <span class="font-bold text-lg" data-i18n="templateClassicDark">🍅 Clásico Pomodoro (Oscuro)</span>
+                    <p class="text-sm opacity-80 mt-1" data-i18n="templateClassicDarkDesc">El esquema original: fondo oscuro, tomate rojo.</p>
+                </button>
+                <!-- Plantilla 2: Minimalista Claro -->
+                <button onclick="applyTemplate('minimalist-light'); toggleTemplateModal()" class="w-full text-left p-4 rounded-lg border-2 hover:opacity-90 transition" style="background-color: #ffffff; border-color: #1d4ed8; color: #1f2937;">
+                    <span class="font-bold text-lg" data-i18n="templateMinimalistLight">✨ Minimalista (Claro)</span>
+                    <p class="text-sm opacity-70 mt-1" data-i18n="templateMinimalistLightDesc">Limpio y brillante: fondo claro, acentos azules y verdes.</p>
+                </button>
+                <!-- Plantilla 3: Verde Zen -->
+                <button onclick="applyTemplate('zen-green'); toggleTemplateModal()" class="w-full text-left p-4 rounded-lg border-2 hover:opacity-90 transition" style="background-color: #2c524c; border-color: #10b981; color: white;">
+                    <span class="font-bold text-lg" data-i18n="templateZenGreen">🌿 Verde Zen (Oscuro)</span>
+                    <p class="text-sm opacity-80 mt-1" data-i18n="templateZenGreenDesc">Colores de naturaleza para la calma y concentración.</p>
+                </button>
+
+                <!-- Separador y Plantillas Personalizadas -->
+                <div class="border-t pt-4 mt-4" style="border-color: var(--bg-control);">
+                    <h4 class="text-xl font-bold mb-3" style="color: var(--color-accent);" data-i18n="templateCustomTitle">Mis Plantillas Personalizadas</h4>
+                    
+                    <!-- Botón para Guardar la configuración actual -->
+                    <button onclick="promptAndSaveTemplate()" class="w-full text-center p-3 rounded-lg border-2 font-bold text-white transition hover:opacity-90 shadow-md mb-4" style="background-color: var(--color-accent); border-color: var(--color-accent);" data-i18n="templateSaveBtn">
+                        + Guardar Configuración Actual
+                    </button>
+
+                    <!-- Contenedor para Plantillas Guardadas Dinámicamente -->
+                    <div id="custom-templates-list" class="space-y-3">
+                        <!-- Las plantillas personalizadas se renderizarán aquí -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Custom Alert/Confirm/Prompt Modal Structure (Reemplaza alert()/confirm()) -->
+    <div id="custom-alert-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4">
+        <div class="p-6 rounded-xl shadow-2xl max-w-sm w-full" style="background-color: var(--bg-app); color: var(--text-primary);">
+            <h4 id="alert-title" class="text-xl font-bold mb-3" style="color: var(--color-accent);" data-i18n-alert="Título">Título</h4>
+            <p id="alert-message" class="mb-4" style="color: var(--text-secondary);" data-i18n-alert="Mensaje">Mensaje</p>
+            
+            <!-- Input para Prompt (oculto por defecto) -->
+            <input type="text" id="alert-prompt-input" placeholder="Introduce el valor aquí..." 
+                   class="w-full p-2 mb-4 rounded-lg hidden focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                   style="background-color: var(--bg-control); color: var(--text-primary);">
+
+            <div id="alert-buttons" class="flex justify-end space-x-3">
+                <!-- Botón de Cancelar (oculto por defecto para Alert) -->
+                <button id="alert-cancel-btn" class="px-4 py-2 text-sm font-semibold rounded-lg transition hover:opacity-80 hidden" 
+                        style="background-color: var(--bg-control); color: var(--text-secondary);" data-i18n-modal="templateCancel">
+                    Cancelar
+                </button>
+                <!-- Botón Principal (Aceptar/Confirmar) -->
+                <button id="alert-confirm-btn" class="px-4 py-2 text-sm font-bold rounded-lg text-white transition hover:opacity-90" 
+                        style="background-color: var(--color-accent);" data-i18n-modal="templateAccept">
+                    Aceptar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Menú Lateral de Estadísticas (Sidebar Izquierdo) -->
+    <div id="stats-sidebar" class="fixed top-0 left-0 h-full w-full max-w-sm shadow-2xl z-40 transform -translate-x-full transition-transform duration-300" 
+          style="background-color: var(--bg-app); color: var(--text-primary); border-right: 1px solid var(--bg-control);">
+        
+        <div class="p-6 h-full flex flex-col">
+            <h2 class="text-3xl font-bold mb-4 flex justify-between items-center" style="color: var(--color-accent);" data-i18n="statsSidebarTitle">
+                Estadísticas de Productividad
+                <button onclick="toggleStatsSidebar()" class="text-3xl font-light hover:opacity-70 transition p-2 rounded-full" style="color: var(--text-secondary);">&times;</button>
+            </h2>
+            
+            <!-- Controles de Filtro -->
+            <div class="mb-4 flex justify-center space-x-2 p-2 rounded-lg" style="background-color: var(--bg-control);">
+                <button onclick="setStatsView('daily')" id="view-daily" class="px-3 py-1 text-sm font-semibold rounded-lg transition" style="background-color: var(--color-accent); color: white;" data-i18n="statsDaily">Diario</button>
+                <button onclick="setStatsView('weekly')" id="view-weekly" class="px-3 py-1 text-sm font-semibold rounded-lg transition" style="background-color: var(--bg-app); color: var(--text-secondary);" data-i18n="statsWeekly">Semanal</button>
+                <button onclick="setStatsView('monthly')" id="view-monthly" class="px-3 py-1 text-sm font-semibold rounded-lg transition" style="background-color: var(--bg-app); color: var(--text-secondary);" data-i18n="statsMonthly">Mensual</button>
+            </div>
+
+            <!-- Resumen de Métricas Clave -->
+            <div id="stats-summary" class="grid grid-cols-2 gap-3 mb-6">
+                <!-- Se llenará dinámicamente -->
+            </div>
+
+            <!-- Gráfico Chart.js -->
+            <div class="flex-1 overflow-y-auto pr-2">
+                <div class="p-4 rounded-xl" style="background-color: var(--bg-control);">
+                    <canvas id="focus-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+    <!-- Menú Lateral de Tareas (Sidebar Derecho) -->
+    <div id="sidebar" class="fixed top-0 right-0 h-full w-full max-w-sm shadow-2xl z-40 transform translate-x-full transition-transform duration-300" 
+          style="background-color: var(--bg-app); color: var(--text-primary); border-left: 1px solid var(--bg-control);">
+        
+        <div class="p-6 h-full flex flex-col">
+            <h2 class="text-3xl font-bold mb-4 flex justify-between items-center" style="color: var(--color-accent);" data-i18n="tasksSidebarTitle">
+                Mi Lista de Tareas
+                <button onclick="toggleSidebar()" class="text-3xl font-light hover:opacity-70 transition p-2 rounded-full" style="color: var(--text-secondary);">&times;</button>
+            </h2>
+            
+            <!-- Entrada de Nueva Tarea -->
+            <div class="mb-6 flex space-x-2">
+                <input type="text" id="new-task-input" placeholder="Añadir nueva tarea..." 
+                        class="flex-1 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        style="background-color: var(--bg-control); color: var(--text-primary);">
+                <button onclick="addTask()" class="px-4 py-2 text-xl font-bold rounded-xl text-white transition hover:opacity-90 shadow-md" 
+                        style="background-color: var(--color-accent);">
+                    +
+                </button>
+            </div>
+            
+            <!-- Lista de Tareas -->
+            <div id="task-list" class="flex-1 overflow-y-auto space-y-3 pr-2">
+                <!-- Las tareas se renderizarán aquí -->
+            </div>
+        </div>
+    </div>
+
+
+    <div id="pomodoro-app" class="w-full max-w-md p-8 rounded-3xl shadow-2xl transition duration-500" 
+          style="background-color: var(--bg-app);">
+
+        <!-- Título y Estado -->
+        <h1 class="text-4xl font-extrabold text-center mb-6" style="color: var(--text-primary);">
+            <span id="app-title-display" data-i18n="appTitle">Temporizador Pomodoro</span>
+        </h1>
+        <h1 class="text-4xl font-extrabold text-center mb-6" style="color: var(--text-primary);">
+            <span id="session-status" data-i18n="workStatus">¡A Trabajar!</span>
+        </h1>
+
+        <!-- Temporizador Principal (The Tomato Visual) -->
+        <div class="text-center mb-10">
+            <!-- El gran círculo que representa el tomate -->
+            <div id="tomato-visual" 
+                  class="w-64 h-64 sm:w-80 sm:h-80 mx-auto flex items-center justify-center 
+                         rounded-full border-8 transition-all duration-500 ease-in-out 
+                         shadow-2xl hover:shadow-3xl transform hover:scale-[1.02]">
+                <div id="timer-display" class="text-7xl sm:text-8xl font-black tracking-tight text-white">
+                    25:00
+                </div>
+            </div>
+        </div>
+
+        <!-- El "Tomate Contador" (Pomodoro Count) -->
+        <div class="text-center mb-8 p-4 rounded-xl shadow-inner" style="background-color: var(--bg-control);">
+            <p class="text-xl font-medium" style="color: var(--text-secondary);" data-i18n="pomodoroCountLabel">Pomodoros Completados</p>
+            <p id="pomodoro-count" class="text-5xl font-extrabold mt-2" style="color: var(--color-count);">0</p>
+        </div>
+
+        <!-- Controles (Actualizado para incluir botón de Estadísticas) -->
+        <div class="flex justify-center space-x-3">
+            <!-- Botón de Estadísticas (NUEVO) -->
+            <button id="stats-btn" class="w-1/5 px-3 py-3 text-lg font-bold rounded-xl text-white hover:opacity-90 transition transform hover:scale-105 shadow-lg" onclick="toggleStatsSidebar()" style="background-color: var(--color-accent);">
+                📊
+            </button>
+            <!-- Botón Iniciar/Pausar -->
+            <button id="start-pause-btn" class="flex-1 px-6 py-3 text-lg font-bold rounded-xl text-white hover:opacity-90 transition transform hover:scale-105 shadow-lg" onclick="toggleTimer()" style="background-color: var(--color-accent);" data-i18n="startBtn">
+                Iniciar
+            </button>
+            <!-- Botón Reiniciar -->
+            <button id="reset-btn" class="w-1/5 px-4 py-3 text-lg font-bold rounded-xl hover:opacity-90 transition transform hover:scale-105 shadow-lg" onclick="resetTimer()" style="background-color: var(--bg-control); color: var(--text-primary);">
+                🔄
+            </button>
+            <!-- Botón de Tareas -->
+            <button id="open-sidebar-btn" class="w-1/5 px-3 py-3 text-lg font-bold rounded-xl text-white hover:opacity-90 transition transform hover:scale-105 shadow-lg" onclick="toggleSidebar()" style="background-color: var(--color-accent);">
+                📝
+            </button>
+        </div>
+        
+        <!-- Sección de Configuración -->
+        <div class="mt-8 pt-4 border-t border-gray-600">
+            <h2 class="text-2xl font-bold mb-4 text-center" style="color: var(--text-primary);" data-i18n="customizationTitle">Personalización</h2>
+
+            <!-- AJUSTES DE TIEMPO (MINUTOS Y SEGUNDOS) -->
+            <div class="p-4 rounded-xl mb-6 space-y-3" style="background-color: var(--bg-control);">
+                <h3 class="text-xl font-bold" style="color: var(--text-primary);" data-i18n="timeSettingsTitle">Ajustes de Tiempo</h3>
+
+                <!-- TIEMPO DE TRABAJO -->
+                <div class="flex justify-between items-center">
+                    <label for="work-duration-min" class="font-semibold" style="color: var(--text-secondary);" data-i18n="workTimeLabel">Tiempo de Trabajo:</label>
+                    <div class="settings-input-group space-x-2">
+                        <input type="number" id="work-duration-min" value="25" min="0" max="60" onchange="updateDurations()" class="w-16 p-2 rounded-lg text-center" style="background-color: var(--bg-app); color: var(--text-primary);" aria-label="Minutos de trabajo">
+                        <span class="text-sm font-medium" style="color: var(--text-secondary);" data-i18n="minutesShort">min</span>
+                        <input type="number" id="work-duration-sec" value="0" min="0" max="59" onchange="updateDurations()" class="w-16 p-2 rounded-lg text-center" style="background-color: var(--bg-app); color: var(--text-primary);" aria-label="Segundos de trabajo">
+                        <span class="text-sm font-medium" style="color: var(--text-secondary);" data-i18n="secondsShort">seg</span>
+                    </div>
+                </div>
+
+                <!-- TIEMPO DE DESCANSO -->
+                <div class="flex justify-between items-center">
+                    <label for="break-duration-min" class="font-semibold" style="color: var(--text-secondary);" data-i18n="breakTimeLabel">Tiempo de Descanso:</label>
+                    <div class="settings-input-group space-x-2">
+                        <input type="number" id="break-duration-min" value="5" min="0" max="60" onchange="updateDurations()" class="w-16 p-2 rounded-lg text-center" style="background-color: var(--bg-app); color: var(--text-primary);" aria-label="Minutos de descanso">
+                        <span class="text-sm font-medium" style="color: var(--text-secondary);" data-i18n="minutesShort">min</span>
+                        <input type="number" id="break-duration-sec" value="0" min="0" max="59" onchange="updateDurations()" class="w-16 p-2 rounded-lg text-center" style="background-color: var(--bg-app); color: var(--text-primary);" aria-label="Segundos de descanso">
+                        <span class="text-sm font-medium" style="color: var(--text-secondary);" data-i18n="secondsShort">seg</span>
+                    </div>
+                </div>
+            </div>
+            <!-- FIN AJUSTES DE TIEMPO -->
+            
+            <!-- Toggle de Tema Claro/Oscuro -->
+            <div class="flex justify-between items-center mb-4 p-3 rounded-lg" style="background-color: var(--bg-control);">
+                <span class="font-semibold" style="color: var(--text-secondary);" data-i18n="themeModeLabel">Modo de Tema: <span id="current-theme-label" data-i18n-theme="themeDark">Oscuro</span></span>
+                <button id="theme-toggle" class="px-4 py-2 text-sm font-bold rounded-full text-white transition transform hover:scale-105" onclick="toggleTheme()" style="background-color: var(--color-accent);" data-i18n="switchToLight">
+                    Cambiar a Claro
+                </button>
+            </div>
+            
+            <!-- Selectores de Color -->
+            <div class="space-y-3 p-3 rounded-lg" style="background-color: var(--bg-control);">
+                <div class="flex justify-between items-center">
+                    <label for="work-color" class="font-semibold" style="color: var(--text-secondary);" data-i18n="workColorLabel">Color del Tomate (Trabajo):</label>
+                    <input type="color" id="work-color" onchange="setCustomColor('work', this.value)" class="w-10 h-10 p-1 rounded-lg border-2 border-gray-500 cursor-pointer" value="#ef4444">
+                </div>
+                <div class="flex justify-between items-center">
+                    <label for="break-color" class="font-semibold" style="color: var(--text-secondary);" data-i18n="breakColorLabel">Color de Descansos:</label>
+                    <input type="color" id="break-color" onchange="setCustomColor('break', this.value)" class="w-10 h-10 p-1 rounded-lg border-2 border-gray-500 cursor-pointer" value="#3b82f6">
+                </div>
+                <!-- Selector de Color para el Contador -->
+                <div class="flex justify-between items-center">
+                    <label for="count-color" class="font-semibold" style="color: var(--text-secondary);" data-i18n="countColorLabel">Color del Contador (Logro):</label>
+                    <input type="color" id="count-color" onchange="setCustomColor('count', this.value)" class="w-10 h-10 p-1 rounded-lg border-2 border-gray-500 cursor-pointer" value="#4ade80">
+                </div>
+                <div class="flex justify-between items-center">
+                    <label for="accent-color" class="font-semibold" style="color: var(--text-secondary);" data-i18n="accentColorLabel">Color de Botón Principal:</label>
+                    <input type="color" id="accent-color" onchange="setCustomColor('accent', this.value)" class="w-10 h-10 p-1 rounded-lg border-2 border-gray-500 cursor-pointer" value="#4f46e5">
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        // Variables de configuración (en segundos)
+        let WORK_DURATION = 25 * 60;
+        let BREAK_DURATION = 5 * 60; // Duración única para todos los descansos
+        const LONG_BREAK_INTERVAL = 4;    
+
+        // Variables de estado
+        let pomodoroCount = 0;
+        let currentSessionType = 'work'; // 'work', 'break' (unificado)
+        let timeLeft = WORK_DURATION;
+        let isRunning = false;
+        let timerInterval;
+        
+        // NUEVO: Global temporary tracker for tasks completed during the current work session
+        let tasksCompletedDuringSession = 0;    
+        
+        // NUEVO: Claves de localStorage para Estadísticas
+        const HISTORY_KEY = 'pomodoroSessionHistory';    
+        const STATS_VIEW = 'pomodoroStatsView';    
+
+        // --- Referencias de Sidebar y Tareas ---
+        const sidebar = document.getElementById('sidebar');
+        const statsSidebar = document.getElementById('stats-sidebar'); // NUEVO
+        const statsSummary = document.getElementById('stats-summary'); // NUEVO
+        const newTaskInput = document.getElementById('new-task-input');
+        const taskList = document.getElementById('task-list');
+        let tasks = []; // Array para almacenar las tareas
+        // --- FIN Referencias de Sidebar y Tareas ---
+
+
+        // Referencias a elementos del DOM
+        const timerDisplay = document.getElementById('timer-display');
+        const sessionStatus = document.getElementById('session-status');
+        const startPauseBtn = document.getElementById('start-pause-btn');
+        const pomodoroCountDisplay = document.getElementById('pomodoro-count');
+        const body = document.body;
+        const tomatoVisual = document.getElementById('tomato-visual');    
+        const themeToggle = document.getElementById('theme-toggle');
+        const currentThemeLabel = document.getElementById('current-theme-label');
+        const templateModal = document.getElementById('template-modal');    
+        const customTemplatesList = document.getElementById('custom-templates-list');
+
+        // Referencias a elementos del Modal Personalizado
+        const modal = document.getElementById('custom-alert-modal');
+        const modalTitle = document.getElementById('alert-title');
+        const modalMessage = document.getElementById('alert-message');
+        const modalInput = document.getElementById('alert-prompt-input');
+        const modalConfirmBtn = document.getElementById('alert-confirm-btn');
+        const modalCancelBtn = document.getElementById('alert-cancel-btn');
+
+        // Elementos de configuración de tiempo (Referencias actualizadas a min/sec)
+        const workDurationMinInput = document.getElementById('work-duration-min');
+        const workDurationSecInput = document.getElementById('work-duration-sec');
+        const breakDurationMinInput = document.getElementById('break-duration-min');
+        const breakDurationSecInput = document.getElementById('break-duration-sec');
+        
+        // Plantillas personalizadas
+        let customTemplates = [];
+        let chartInstance = null; // Instancia de Chart.js
+
+
+        // --- Lógica de Localización (i18n) ---
+        const translations = {
+            es: {
+                // Títulos y estados
+                appTitle: "Temporizador Pomodoro",
+                workStatus: "¡A Trabajar!",
+                shortBreakStatus: "Descanso Corto",
+                longBreakStatus: "Descanso Largo",
+                pomodoroCountLabel: "Pomodoros Completados",
+                // Botones de acción principal
+                startBtn: "Iniciar",
+                pauseBtn: "Pausar",
+                resumeBtn: "Reanudar",
+                // Modales
+                congratulationsTitle: "¡Felicidades!",
+                breakTitle: "¡Descanso!",
+                backToWorkTitle: "¡Volvamos!",
+                breakMessage: "Relájate unos minutos. ¡Lo mereces!",
+                backToWorkMessage: "Es hora de volver al trabajo. ¡Concéntrate!",
+                // Configuración y personalización
+                customizationTitle: "Personalización",
+                timeSettingsTitle: "Ajustes de Tiempo",
+                workTimeLabel: "Tiempo de Trabajo:",
+                breakTimeLabel: "Tiempo de Descanso:",
+                minutesShort: "min",
+                secondsShort: "seg",
+                themeModeLabel: "Modo de Tema:",
+                themeDark: "Oscuro",
+                themeLight: "Claro",
+                switchToDark: "Cambiar a Oscuro",
+                switchToLight: "Cambiar a Claro",
+                workColorLabel: "Color del Tomate (Trabajo):",
+                breakColorLabel: "Color de Descansos:",
+                countColorLabel: "Color del Contador (Logro):",
+                accentColorLabel: "Color de Botón Principal:",
+                // Tareas
+                tasksSidebarTitle: "Mi Lista de Tareas",
+                newTaskPlaceholder: "Añadir nueva tarea...",
+                noTasksMessage: "No hay tareas pendientes. ¡Añade una!",
+                deleteTaskTitle: "Eliminar Tarea",
+                deleteTaskMessage: "¿Estás seguro de que quieres eliminar esta tarea?",
+                // Alertas de configuración
+                resetWarning: "Detén el temporizador antes de cambiar la duración.",
+                // Estadísticas
+                statsSidebarTitle: "Estadísticas de Productividad",
+                statsDaily: "Diario",
+                statsWeekly: "Semanal",
+                statsMonthly: "Mensual",
+                statsPomodoros: "Pomodoros Completados",
+                statsHours: "Horas Trabajadas",
+                statsTasksPerPomo: "Tareas/Pomodoro",
+                statsTotalTasks: "Tareas Completadas",
+                chartTitle: "Rendimiento de Pomodoros",
+                chartXAxisHour: "Hora del Día",
+                chartXAxisDay: "Día",
+                chartYAxisHour: "Pomodoros por Hora",
+                chartYAxisDay: "Pomodoros por Día",
+                // Plantillas
+                templateBtn: "🎨 Plantillas UI",
+                templateModalTitle: "Seleccionar Plantilla",
+                templatePredefinedTitle: "Plantillas Predeterminadas",
+                templateClassicDark: "🍅 Clásico Pomodoro (Oscuro)",
+                templateMinimalistLight: "✨ Minimalista (Claro)",
+                templateZenGreen: "🌿 Verde Zen (Oscuro)",
+                templateCustomTitle: "Mis Plantillas Personalizadas",
+                templateSaveBtn: "+ Guardar Configuración Actual",
+                templateNoCustom: "Aún no has guardado ninguna plantilla.",
+                templateThemeDark: "Oscuro",
+                templateThemeLight: "Claro",
+                templateSaveModalTitle: "Guardar Plantilla",
+                templateSaveModalMessage: "Introduce un nombre para tu plantilla:",
+                templateSaveErrorName: "Debes introducir un nombre para guardar la plantilla.",
+                templateSaveErrorExists: "Ya existe una plantilla llamada \"{name}\".",
+                templateSaveSuccess: "Plantilla \"{name}\" guardada con éxito!",
+                templateDeleteTitle: "Eliminar Plantilla",
+                templateDeleteMessage: "¿Estás seguro de que quieres eliminar la plantilla \"{name}\"?",
+                templateDeleteSuccess: "La plantilla \"{name}\" ha sido eliminada.",
+                templateConfirm: "Confirmar",
+                templateAccept: "Aceptar",
+                templateCancel: "Cancelar",
+                templateSave: "Guardar",
+                templateClassicDarkDesc: "El esquema original: fondo oscuro, tomate rojo.",
+                templateMinimalistLightDesc: "Limpio y brillante: fondo claro, acentos azules y verdes.",
+                templateZenGreenDesc: "Colores de naturaleza para la calma y concentración."
+            },
+            en: {
+                // Títulos y estados
+                appTitle: "Pomodoro Timer",
+                workStatus: "Time to Work!",
+                shortBreakStatus: "Short Break",
+                longBreakStatus: "Long Break",
+                pomodoroCountLabel: "Pomodoros Completed",
+                // Botones de acción principal
+                startBtn: "Start",
+                pauseBtn: "Pause",
+                resumeBtn: "Resume",
+                // Modales
+                congratulationsTitle: "Congratulations!",
+                breakTitle: "Break Time!",
+                backToWorkTitle: "Back to Work!",
+                breakMessage: "Take a few minutes to relax. You earned it!",
+                backToWorkMessage: "It's time to get back to work. Focus!",
+                // Configuración y personalización
+                customizationTitle: "Customization",
+                timeSettingsTitle: "Time Settings",
+                workTimeLabel: "Work Time:",
+                breakTimeLabel: "Break Time:",
+                minutesShort: "min",
+                secondsShort: "sec",
+                themeModeLabel: "Theme Mode:",
+                themeDark: "Dark",
+                themeLight: "Light",
+                switchToDark: "Switch to Dark",
+                switchToLight: "Switch to Light",
+                workColorLabel: "Tomato Color (Work):",
+                breakColorLabel: "Break Color:",
+                countColorLabel: "Count Color (Achievement):",
+                accentColorLabel: "Main Button Color:",
+                // Tareas
+                tasksSidebarTitle: "My Task List",
+                newTaskPlaceholder: "Add new task...",
+                noTasksMessage: "No pending tasks. Add one!",
+                deleteTaskTitle: "Delete Task",
+                deleteTaskMessage: "Are you sure you want to delete this task?",
+                // Alertas de configuración
+                resetWarning: "Stop the timer before changing the duration.",
+                // Estadísticas
+                statsSidebarTitle: "Productivity Statistics",
+                statsDaily: "Daily",
+                statsWeekly: "Weekly",
+                statsMonthly: "Monthly",
+                statsPomodoros: "Pomodoros Completed",
+                statsHours: "Hours Worked",
+                statsTasksPerPomo: "Tasks/Pomodoro",
+                statsTotalTasks: "Total Tasks Completed",
+                chartTitle: "Pomodoro Performance",
+                chartXAxisHour: "Hour of the Day",
+                chartXAxisDay: "Day",
+                chartYAxisHour: "Pomodoros per Hour",
+                chartYAxisDay: "Pomodoros per Day",
+                // Plantillas
+                templateBtn: "🎨 UI Templates",
+                templateModalTitle: "Select Template",
+                templatePredefinedTitle: "Predefined Templates",
+                templateClassicDark: "🍅 Classic Pomodoro (Dark)",
+                templateMinimalistLight: "✨ Minimalist (Light)",
+                templateZenGreen: "🌿 Zen Green (Dark)",
+                templateCustomTitle: "My Custom Templates",
+                templateSaveBtn: "+ Save Current Settings",
+                templateNoCustom: "You haven't saved any custom templates yet.",
+                templateThemeDark: "Dark",
+                templateThemeLight: "Light",
+                templateSaveModalTitle: "Save Template",
+                templateSaveModalMessage: "Enter a name for your template:",
+                templateSaveErrorName: "You must enter a name to save the template.",
+                templateSaveErrorExists: "A template named \"{name}\" already exists.",
+                templateSaveSuccess: "Template \"{name}\" saved successfully!",
+                templateDeleteTitle: "Delete Template",
+                templateDeleteMessage: "Are you sure you want to delete the template \"{name}\"?",
+                templateDeleteSuccess: "The template \"{name}\" has been deleted.",
+                templateConfirm: "Confirm",
+                templateAccept: "Accept",
+                templateCancel: "Cancel",
+                templateSave: "Save",
+                templateClassicDarkDesc: "The original scheme: dark background, red tomato.",
+                templateMinimalistLightDesc: "Clean and bright: light background, blue and green accents.",
+                templateZenGreenDesc: "Nature colors for calm and focus."
+            }
+        };
+
+        let currentLang = localStorage.getItem('pomodoroLang') || 'es';
+
+        /**
+         * Traduce un texto usando la clave y el idioma actual.
+         * @param {string} key - Clave de la traducción.
+         * @param {object} [placeholders={}] - Objeto de reemplazo (ej. {name: "Mi Plantilla"}).
+         * @returns {string} El texto traducido o la clave si no se encuentra.
+         */
+        function getTranslation(key, placeholders = {}) {
+            let text = translations[currentLang] && translations[currentLang][key] ? translations[currentLang][key] : key;
+            
+            // Reemplazar placeholders
+            for (const pKey in placeholders) {
+                const regex = new RegExp(`{${pKey}}`, 'g');
+                text = text.replace(regex, placeholders[pKey]);
+            }
+            return text;
+        }
+
+        /**
+         * Actualiza el texto de todos los elementos con el atributo data-i18n.
+         * @param {string} lang - El código del idioma ('es' o 'en').
+         */
+        function setLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem('pomodoroLang', lang);
+            
+            document.documentElement.lang = lang; // Para accesibilidad
+            
+            // 1. Actualizar elementos con data-i18n
+            const elements = document.querySelectorAll('[data-i18n]');
+            elements.forEach(element => {
+                const key = element.getAttribute('data-i18n');
+                if (key) {
+                    element.textContent = getTranslation(key);
+                }
+            });
+
+            // 2. Actualizar placeholders (inputs, etc.)
+            document.getElementById('new-task-input').placeholder = getTranslation('newTaskPlaceholder');
+            // Los aria-labels de los inputs ya se actualizan en loadSettings() si se llama updateDurations
+            document.getElementById('alert-prompt-input').placeholder = getTranslation('templateSaveModalMessage');
+            
+            // 3. Actualizar elementos que dependen del estado/traducción
+            updateTomatoVisual(); // Actualiza el estado de la sesión (ej: ¡A Trabajar! / Time to Work!)
+            updateThemeToggleText(); // Actualiza el texto del botón de tema
+            updateStartPauseButtonText(); // Actualiza el texto del botón Iniciar/Pausar
+            renderTasks(); // Renderiza el mensaje de 'no hay tareas'
+            renderCustomTemplates(); // Re-renderiza nombres y temas de plantillas
+            
+            // 4. Actualizar títulos
+            document.getElementById('app-title-display').textContent = getTranslation('appTitle');
+            document.getElementById('template-modal-title').textContent = getTranslation('templateModalTitle');
+            document.getElementById('alert-cancel-btn').textContent = getTranslation('templateCancel');
+            document.getElementById('alert-confirm-btn').textContent = getTranslation('templateAccept');
+            
+            // 5. Si el sidebar de estadísticas está abierto, actualizarlo
+            if (!statsSidebar.classList.contains('-translate-x-full')) {
+                renderStats(localStorage.getItem(STATS_VIEW) || 'daily');
+            }
+        }
+        
+        /**
+         * Función auxiliar para actualizar el texto del botón de Iniciar/Pausar/Reanudar.
+         */
+        function updateStartPauseButtonText() {
+            if (isRunning) {
+                startPauseBtn.textContent = getTranslation('pauseBtn');
+            } else {
+                // Verificar si es un inicio o reanudación
+                const isInitialState = (currentSessionType === 'work' && timeLeft === WORK_DURATION) || 
+                                       (currentSessionType === 'break' && timeLeft === BREAK_DURATION) || 
+                                       (currentSessionType === 'break' && timeLeft === BREAK_DURATION * 2);
+
+                if (isInitialState) {
+                    startPauseBtn.textContent = getTranslation('startBtn');
+                } else {
+                    startPauseBtn.textContent = getTranslation('resumeBtn');
+                }
+            }
+        }
+
+        /**
+         * Función auxiliar para actualizar el texto del botón de Tema.
+         */
+        function updateThemeToggleText() {
+            const isLight = body.classList.contains('light-theme');
+            if (isLight) {
+                themeToggle.textContent = getTranslation('switchToDark');
+                currentThemeLabel.textContent = getTranslation('themeLight');
+            } else {
+                themeToggle.textContent = getTranslation('switchToLight');
+                currentThemeLabel.textContent = getTranslation('themeDark');
+            }
+        }
+
+        // --- Lógica de Personalización y Temas ---
+
+        /**
+         * Carga las plantillas personalizadas desde localStorage.
+         */
+        function loadCustomTemplates() {
+            try {
+                const storedTemplates = localStorage.getItem('customUITemplates');
+                customTemplates = storedTemplates ? JSON.parse(storedTemplates) : [];
+            } catch (e) {
+                console.error("Error loading custom templates:", e);
+                customTemplates = [];
+            }
+        }
+        
+        /**
+         * Renderiza dinámicamente las plantillas personalizadas.
+         */
+        function renderCustomTemplates() {
+            loadCustomTemplates();
+            customTemplatesList.innerHTML = '';
+            
+            if (customTemplates.length === 0) {
+                customTemplatesList.innerHTML = `<p class="text-sm font-medium text-center opacity-70 mt-6" style="color: var(--text-secondary);">${getTranslation('templateNoCustom')}</p>`;
+                return;
+            }
+
+            customTemplates.forEach(template => {
+                const accentColor = template.colors.accent;
+                const workColor = template.colors.work;
+                
+                let bgColor, textColor;
+                if (template.theme === 'light') {
+                    bgColor = '#f9fafb';    
+                    textColor = '#1f2937';    
+                } else {
+                    bgColor = '#2b3543';    
+                    textColor = 'white';
+                }
+
+                const templateButton = document.createElement('div');
+                templateButton.className = "flex items-center justify-between p-3 rounded-lg border-2 transition duration-150 shadow-md";
+                templateButton.style.backgroundColor = bgColor;
+                templateButton.style.borderColor = accentColor;
+                templateButton.style.color = textColor;
+                
+                // Botón para aplicar la plantilla
+                const applyBtn = document.createElement('button');
+                applyBtn.className = 'flex-1 text-left font-bold text-lg hover:opacity-80 transition break-words';
+                applyBtn.setAttribute('onclick', `applyTemplate('${template.name.replace(/'/g, "\\'")}'); toggleTemplateModal()`);
+                
+                const themeTextKey = template.theme === 'light' ? 'templateThemeLight' : 'templateThemeDark';
+
+                applyBtn.innerHTML = `
+                    <span class="mr-2" style="color: ${workColor};">●</span> ${template.name}
+                    <p class="text-xs font-normal opacity-70 mt-1" style="color: ${textColor}">${getTranslation('themeModeLabel')}: ${getTranslation(themeTextKey)}</p>
+                `;
+                templateButton.appendChild(applyBtn);
+
+                // Botón de eliminar
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'ml-4 text-2xl font-light p-1 rounded-full transition';
+                deleteButton.innerHTML = '&times;'; // Icono 'x' para eliminar
+                deleteButton.onclick = () => deleteCustomTemplate(template.name);
+                deleteButton.style.color = 'var(--color-work)'; // Usar color de trabajo (rojo) para eliminar
+
+                templateButton.appendChild(deleteButton);
+                
+                customTemplatesList.appendChild(templateButton);
+            });
+        }
+        
+        /**
+         * Pide al usuario un nombre para guardar la plantilla actual.
+         */
+        function promptAndSaveTemplate() {
+            // Usa el modal personalizado para obtener el nombre
+            showPromptModal(
+                getTranslation('templateSaveModalTitle'),
+                getTranslation('templateSaveModalMessage'),
+                saveCustomTemplate
+            );
+        }
+
+        /**
+         * Implementa la lógica para guardar la plantilla después de obtener el nombre.
+         * @param {string} templateName - Nombre de la plantilla proporcionado por el usuario.
+         */
+        function saveCustomTemplate(templateName) {
+            const name = templateName ? templateName.trim() : null;
+            if (!name) {
+                alertModal(
+                    getTranslation('templateSaveModalTitle'),
+                    getTranslation('templateSaveErrorName')
+                );
+                return;
+            }
+
+            if (customTemplates.some(t => t.name.toLowerCase() === name.toLowerCase())) {
+                 alertModal(
+                    getTranslation('templateSaveModalTitle'),
+                    getTranslation('templateSaveErrorExists', {name: name})
+                 );
+                 return;
+            }
+
+            // Capturar la configuración actual
+            const currentSettings = {
+                name: name,
+                theme: body.classList.contains('light-theme') ? 'light' : 'dark',
+                colors: {
+                    work: document.getElementById('work-color').value,
+                    break: document.getElementById('break-color').value,
+                    accent: document.getElementById('accent-color').value,
+                    count: document.getElementById('count-color').value,
+                }
+            };
+
+            customTemplates.push(currentSettings);
+            localStorage.setItem('customUITemplates', JSON.stringify(customTemplates));
+            alertModal(
+                getTranslation('templateSaveModalTitle'), 
+                getTranslation('templateSaveSuccess', {name: name})
+            );
+            renderCustomTemplates(); // Re-renderizar la lista
+        }
+
+        /**
+         * Elimina una plantilla personalizada por nombre.
+         * @param {string} name - Nombre de la plantilla a eliminar.
+         */
+        function deleteCustomTemplate(name) {
+            showConfirmModal(
+                getTranslation('templateDeleteTitle'),
+                getTranslation('templateDeleteMessage', {name: name}),
+                () => {
+                    customTemplates = customTemplates.filter(t => t.name !== name);
+                    localStorage.setItem('customUITemplates', JSON.stringify(customTemplates));
+                    alertModal(
+                        getTranslation('templateDeleteTitle'), 
+                        getTranslation('templateDeleteSuccess', {name: name})
+                    );
+                    renderCustomTemplates();    
+                }
+            );
+        }
+
+
+        /**
+         * Fuerza un tema específico y actualiza la UI.
+         * @param {string} desiredTheme - 'light' o 'dark'.
+         */
+        function setTemplateTheme(desiredTheme) {
+            const isLight = body.classList.contains('light-theme');
+            
+            if (desiredTheme === 'light' && !isLight) {
+                // Forzar tema Claro
+                body.classList.add('light-theme');
+                localStorage.setItem('pomodoroTheme', 'light');
+            } else if (desiredTheme === 'dark' && isLight) {
+                // Forzar tema Oscuro
+                body.classList.remove('light-theme');
+                localStorage.setItem('pomodoroTheme', 'dark');
+            }
+            
+            // Actualizar elementos de la UI (botón y etiqueta)
+            updateThemeToggleText();
+
+            // Asegurar que el gráfico se actualice con los colores del tema
+            if (chartInstance) {
+                const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim();
+                const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--bg-control').trim();
+                chartInstance.options.scales.x.grid.color = gridColor;
+                chartInstance.options.scales.x.ticks.color = textColor;
+                chartInstance.options.scales.x.title.color = textColor;
+                chartInstance.options.scales.y.grid.color = gridColor;
+                chartInstance.options.scales.y.ticks.color = textColor;
+                chartInstance.options.scales.y.title.color = textColor;
+                chartInstance.options.plugins.title.color = textColor;
+                chartInstance.update();
+            }
+        }
+        
+        /**
+         * Carga la configuración de tema, colores y DURACIONES desde el almacenamiento local.
+         */
+        function loadSettings() {
+            loadCustomTemplates(); // Cargar plantillas personalizadas al inicio
+            
+            // Cargar Historial de sesiones (para inicializar la variable global)
+            loadSessionHistory();    
+            
+            // Cargar Duraciones (Minutos y Segundos)
+            const savedWorkMin = localStorage.getItem('workDurationMin') || 25;
+            const savedWorkSec = localStorage.getItem('workDurationSec') || 0;
+            const savedBreakMin = localStorage.getItem('breakDurationMin') || 5;    
+            const savedBreakSec = localStorage.getItem('breakDurationSec') || 0;
+
+            // Actualizar inputs
+            workDurationMinInput.value = savedWorkMin;
+            workDurationSecInput.value = savedWorkSec;
+            breakDurationMinInput.value = savedBreakMin;
+            breakDurationSecInput.value = savedBreakSec;
+
+            // Calcular y actualizar variables de JS (en segundos)
+            WORK_DURATION = (parseInt(savedWorkMin) * 60) + parseInt(savedWorkSec);
+            BREAK_DURATION = (parseInt(savedBreakMin) * 60) + parseInt(savedBreakSec);
+            
+            // Cargar Colores Personalizados
+            const workColor = localStorage.getItem('workColor') || '#ef4444';
+            const breakColor = localStorage.getItem('breakColor') || '#3b82f6';
+            const accentColor = localStorage.getItem('accentColor') || '#4f46e5';
+            const countColor = localStorage.getItem('countColor') || '#4ade80';
+
+            document.getElementById('work-color').value = workColor;
+            document.getElementById('break-color').value = breakColor;
+            document.getElementById('accent-color').value = accentColor;
+            document.getElementById('count-color').value = countColor;
+            
+            // Aplicar colores inmediatamente
+            document.documentElement.style.setProperty('--color-work', workColor);
+            document.documentElement.style.setProperty('--color-short-break', breakColor);
+            document.documentElement.style.setProperty('--color-long-break', breakColor);    
+            document.documentElement.style.setProperty('--color-accent', accentColor);
+            document.documentElement.style.setProperty('--color-count', countColor);
+
+            // Cargar Tema
+            const savedTheme = localStorage.getItem('pomodoroTheme');
+            if (savedTheme === 'light') {
+                setTemplateTheme('light');    
+            } else {
+                setTemplateTheme('dark');    
+            }
+
+            updateTomatoVisual(); 
+            updateTimerDisplay(timeLeft);
+        }
+
+        /**
+         * Actualiza las duraciones de trabajo y descanso desde los inputs y reinicia el temporizador.
+         */
+        function updateDurations() {
+            if (isRunning) {
+                alertModal(getTranslation('congratulationsTitle'), getTranslation('resetWarning')); 
+                // Recargar valores guardados para revertir el cambio
+                loadSettings(); 
+                return;
+            }
+
+            // Validar y limpiar entradas
+            const workMin = parseInt(workDurationMinInput.value) || 0;
+            const workSec = parseInt(workDurationSecInput.value) || 0;
+            const breakMin = parseInt(breakDurationMinInput.value) || 0;
+            const breakSec = parseInt(breakDurationSecInput.value) || 0;
+
+            WORK_DURATION = (workMin * 60) + workSec;
+            BREAK_DURATION = (breakMin * 60) + breakSec;
+
+            // Guardar en localStorage
+            localStorage.setItem('workDurationMin', workMin);
+            localStorage.setItem('workDurationSec', workSec);
+            localStorage.setItem('breakDurationMin', breakMin);
+            localStorage.setItem('breakDurationSec', breakSec);
+
+            // Actualizar temporizador si está en el tipo de sesión actual
+            if (currentSessionType === 'work') {
+                timeLeft = WORK_DURATION;
+            } else {
+                timeLeft = BREAK_DURATION;
+            }
+            updateTimerDisplay(timeLeft);
+        }
+
+        /**
+         * Alterna entre el tema claro y oscuro.
+         */
+        function toggleTheme() {
+            setTemplateTheme(body.classList.contains('light-theme') ? 'dark' : 'light');
+        }
+
+        /**
+         * Establece un color personalizado, lo guarda en localStorage y actualiza el CSS.
+         * @param {string} prop - work, break, accent, o count.
+         * @param {string} value - El valor del color (ej. #ff0000).
+         */
+        function setCustomColor(prop, value) {
+            const root = document.documentElement.style;
+            let storageKey;
+
+            switch (prop) {
+                case 'work':
+                    storageKey = 'workColor';
+                    root.setProperty('--color-work', value);
+                    break;
+                case 'break':
+                    storageKey = 'breakColor';
+                    root.setProperty('--color-short-break', value);
+                    root.setProperty('--color-long-break', value); // Mismo color para ambos
+                    break;
+                case 'accent':
+                    storageKey = 'accentColor';
+                    root.setProperty('--color-accent', value);
+                    break;
+                case 'count':
+                    storageKey = 'countColor';
+                    root.setProperty('--color-count', value);
+                    break;
+                default:
+                    return;
+            }
+            localStorage.setItem(storageKey, value);
+            updateTomatoVisual(); // Asegurarse de que el color del temporizador se actualice
+        }
+
+        /**
+         * Aplica una plantilla de UI predefinida o personalizada.
+         * @param {string} templateName - Nombre de la plantilla (ej. 'classic-dark').
+         */
+        function applyTemplate(templateName) {
+            let template = {};
+
+            if (['classic-dark', 'minimalist-light', 'zen-green'].includes(templateName)) {
+                // Plantillas predeterminadas
+                const predefined = {
+                    'classic-dark': {
+                        theme: 'dark',
+                        colors: { work: '#ef4444', break: '#3b82f6', accent: '#4f46e5', count: '#4ade80' }
+                    },
+                    'minimalist-light': {
+                        theme: 'light',
+                        colors: { work: '#1d4ed8', break: '#059669', accent: '#dc2626', count: '#fbbf24' }
+                    },
+                    'zen-green': {
+                        theme: 'dark',
+                        colors: { work: '#10b981', break: '#6366f1', accent: '#f97316', count: '#a855f7' }
+                    }
+                };
+                template = predefined[templateName];
+            } else {
+                // Plantillas personalizadas
+                const custom = customTemplates.find(t => t.name === templateName);
+                if (!custom) return;
+                template = custom;
+            }
+
+            // 1. Aplicar Tema
+            setTemplateTheme(template.theme);
+
+            // 2. Aplicar Colores y actualizar inputs de color
+            for (const prop in template.colors) {
+                const value = template.colors[prop];
+                setCustomColor(prop, value);
+                // Actualizar los inputs de color en la UI
+                const inputElement = document.getElementById(`${prop}-color`);
+                if (inputElement) {
+                    inputElement.value = value;
+                }
+            }
+            
+            // Actualizar la visualización del tomate por si el color actual cambió
+            updateTomatoVisual();
+        }
+
+        /**
+         * Alterna la visibilidad del modal de plantillas.
+         */
+        function toggleTemplateModal() {
+            templateModal.classList.toggle('hidden');
+            if (!templateModal.classList.contains('hidden')) {
+                renderCustomTemplates(); // Asegurar que la lista de plantillas esté actualizada
+            }
+        }
+
+        // --- Lógica de Modales Personalizados (Alert, Confirm, Prompt) ---
+
+        /**
+         * Muestra un modal de alerta simple.
+         * @param {string} title - Título del modal.
+         * @param {string} message - Mensaje del modal.
+         */
+        function alertModal(title, message) {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            modalInput.classList.add('hidden');
+            modalCancelBtn.classList.add('hidden');
+            modalConfirmBtn.textContent = getTranslation('templateAccept');
+            modalConfirmBtn.onclick = () => modal.classList.add('hidden');
+            modal.classList.remove('hidden');
+        }
+
+        /**
+         * Muestra un modal de confirmación.
+         * @param {string} title - Título del modal.
+         * @param {string} message - Mensaje del modal.
+         * @param {function} onConfirm - Función a ejecutar si se confirma.
+         */
+        function showConfirmModal(title, message, onConfirm) {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            modalInput.classList.add('hidden');
+            modalConfirmBtn.textContent = getTranslation('templateConfirm');
+            modalCancelBtn.textContent = getTranslation('templateCancel');
+            modalCancelBtn.classList.remove('hidden');
+
+            modalCancelBtn.onclick = () => modal.classList.add('hidden');
+            modalConfirmBtn.onclick = () => {
+                modal.classList.add('hidden');
+                onConfirm();
+            };
+            modal.classList.remove('hidden');
+        }
+
+        /**
+         * Muestra un modal de prompt (solicitud de entrada).
+         * @param {string} title - Título del modal.
+         * @param {string} message - Mensaje/pregunta para el usuario.
+         * @param {function} onInputReceived - Función a ejecutar con el valor introducido.
+         */
+        function showPromptModal(title, message, onInputReceived) {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            modalInput.value = '';
+            modalInput.classList.remove('hidden');
+            modalConfirmBtn.textContent = getTranslation('templateSave');
+            modalCancelBtn.textContent = getTranslation('templateCancel');
+            modalCancelBtn.classList.remove('hidden');
+
+            modalCancelBtn.onclick = () => modal.classList.add('hidden');
+            modalConfirmBtn.onclick = () => {
+                modal.classList.add('hidden');
+                onInputReceived(modalInput.value);
+            };
+            modal.classList.remove('hidden');
+            modalInput.focus();
+        }
+
+        // --- Lógica del Temporizador Principal ---
+
+        /**
+         * Actualiza el color visual del "tomate" según la sesión actual.
+         */
+        function updateTomatoVisual() {
+            let colorVar;
+            let statusText;
+            
+            // Obtener el color actual del tema (asegurando que se obtenga el valor correcto en tiempo de ejecución)
+            const workColor = getComputedStyle(document.documentElement).getPropertyValue('--color-work').trim();
+            const breakColor = getComputedStyle(document.documentElement).getPropertyValue('--color-short-break').trim();
+
+            if (currentSessionType === 'work') {
+                colorVar = workColor;
+                statusText = getTranslation('workStatus');
+            } else {
+                // Determina si es descanso corto o largo (aunque el color sea el mismo)
+                colorVar = breakColor;
+                if (pomodoroCount > 0 && pomodoroCount % LONG_BREAK_INTERVAL === 0) {
+                    statusText = getTranslation('longBreakStatus');
+                } else {
+                    statusText = getTranslation('shortBreakStatus');
+                }
+            }
+
+            // Aplicar estilo dinámico
+            tomatoVisual.style.borderColor = colorVar;
+            // Usamos opacidad para el fondo
+            tomatoVisual.style.backgroundColor = `${colorVar.slice(0, 7)}30`; 
+
+            sessionStatus.textContent = statusText;
+            pomodoroCountDisplay.textContent = pomodoroCount;
+            updateStartPauseButtonText(); // Asegurar que el botón se actualice
+        }
+
+        /**
+         * Formatea y muestra el tiempo restante en la UI.
+         * @param {number} time - Tiempo en segundos.
+         */
+        function updateTimerDisplay(time) {
+            const minutes = Math.floor(time / 60);
+            const seconds = time % 60;
+            const paddedMinutes = String(minutes).padStart(2, '0');
+            const paddedSeconds = String(seconds).padStart(2, '0');
+            timerDisplay.textContent = `${paddedMinutes}:${paddedSeconds}`;
+
+            // Actualizar título de la página
+            document.title = `(${paddedMinutes}:${paddedSeconds}) | ${getTranslation('appTitle')}`;
+        }
+
+        /**
+         * Avanza a la siguiente sesión (trabajo o descanso).
+         */
+        function nextSession() {
+            // 1. Registrar la sesión anterior (si terminó por sí misma)
+            if (currentSessionType === 'work') {
+                pomodoroCount++;
+                // Registrar sesión completada
+                recordPomodoroSession('work', WORK_DURATION, tasksCompletedDuringSession);
+                tasksCompletedDuringSession = 0; // Resetear contador de tareas
+                
+                currentSessionType = 'break';
+                // Determinar si es descanso largo
+                if (pomodoroCount % LONG_BREAK_INTERVAL === 0) {
+                    // Doble de duración para un descanso largo simple
+                    timeLeft = BREAK_DURATION * 2; 
+                    alertModal(
+                        getTranslation('congratulationsTitle'), 
+                        getTranslation('breakMessage')
+                    );
+                } else {
+                    timeLeft = BREAK_DURATION;
+                    alertModal(
+                        getTranslation('breakTitle'), 
+                        getTranslation('breakMessage')
+                    );
+                }
+
+            } else {
+                // Registrar sesión de descanso
+                recordPomodoroSession('break', timeLeft, 0); 
+
+                currentSessionType = 'work';
+                timeLeft = WORK_DURATION;
+                alertModal(
+                    getTranslation('backToWorkTitle'), 
+                    getTranslation('backToWorkMessage')
+                );
+            }
+
+            updateTomatoVisual();
+            updateTimerDisplay(timeLeft);
+            startTimer(); // Iniciar el siguiente temporizador automáticamente
+            
+            // Actualizar estadísticas después de cada sesión completada
+            if (!statsSidebar.classList.contains('-translate-x-full')) {
+                renderStats(localStorage.getItem(STATS_VIEW) || 'daily');
+            }
+        }
+
+        /**
+         * El bucle principal del temporizador.
+         */
+        function tick() {
+            if (!isRunning) return;
+
+            timeLeft--;
+            updateTimerDisplay(timeLeft);
+
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                isRunning = false;
+                updateStartPauseButtonText();
+                nextSession();
+            }
+        }
+
+        /**
+         * Alterna entre iniciar y pausar.
+         */
+        function toggleTimer() {
+            if (isRunning) {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        }
+
+        /**
+         * Inicia el temporizador.
+         */
+        function startTimer() {
+            if (isRunning) return;
+            isRunning = true;
+            updateStartPauseButtonText();
+            timerInterval = setInterval(tick, 1000);
+        }
+
+        /**
+         * Pausa el temporizador.
+         */
+        function pauseTimer() {
+            if (!isRunning) return;
+            isRunning = false;
+            updateStartPauseButtonText();
+            clearInterval(timerInterval);
+        }
+
+        /**
+         * Reinicia el temporizador a la duración de la sesión actual.
+         */
+        function resetTimer() {
+            pauseTimer();
+            // Restablecer la duración al valor de configuración (no al tiempo transcurrido)
+            if (currentSessionType === 'work') {
+                timeLeft = WORK_DURATION;
+            } else {
+                // Si estamos en descanso y reiniciamos, volvemos a trabajo
+                currentSessionType = 'work';
+                timeLeft = WORK_DURATION;
+                updateTomatoVisual(); // Necesario si cambiamos de sesión
+            }
+            updateStartPauseButtonText();
+            updateTimerDisplay(timeLeft);
+        }
+
+        // --- Lógica del Sidebar de Tareas (Task List) ---
+
+        /**
+         * Alterna la visibilidad del sidebar de tareas.
+         */
+        function toggleSidebar() {
+            sidebar.classList.toggle('translate-x-full');
+        }
+
+        /**
+         * Carga las tareas desde localStorage.
+         */
+        function loadTasks() {
+            try {
+                const storedTasks = localStorage.getItem('pomodoroTasks');
+                tasks = storedTasks ? JSON.parse(storedTasks) : [];
+            } catch (e) {
+                console.error("Error loading tasks:", e);
+                tasks = [];
+            }
+        }
+
+        /**
+         * Guarda las tareas en localStorage.
+         */
+        function saveTasks() {
+            localStorage.setItem('pomodoroTasks', JSON.stringify(tasks));
+        }
+
+        /**
+         * Renderiza la lista de tareas.
+         */
+        function renderTasks() {
+            taskList.innerHTML = '';
+            if (tasks.length === 0) {
+                taskList.innerHTML = `<p class="text-center font-medium opacity-70 mt-6" style="color: var(--text-secondary);">${getTranslation('noTasksMessage')}</p>`;
+                return;
+            }
+            
+            tasks.forEach(task => {
+                const taskItem = document.createElement('div');
+                taskItem.className = `flex items-center p-3 rounded-xl shadow-md transition duration-200 ${task.completed ? 'opacity-50' : 'hover:shadow-lg'}`;
+                taskItem.style.backgroundColor = task.completed ? 'var(--bg-control)' : 'var(--bg-app)';
+                taskItem.style.borderColor = task.completed ? 'transparent' : 'var(--color-accent)';
+
+                taskItem.innerHTML = `
+                    <input type="checkbox" id="task-${task.id}" ${task.completed ? 'checked' : ''} onchange="toggleTask('${task.id}')"
+                            class="w-5 h-5 mr-3">
+                    <label for="task-${task.id}" class="flex-1 text-lg cursor-pointer ${task.completed ? 'line-through' : ''}" style="color: var(--text-primary);">
+                        ${task.name}
+                    </label>
+                    <button onclick="deleteTask('${task.id}')" class="text-2xl font-light p-1 rounded-full text-red-500 hover:text-red-400 transition ml-2">
+                        &times;
+                    </button>
+                `;
+                taskList.appendChild(taskItem);
+            });
+        }
+
+        /**
+         * Añade una nueva tarea.
+         */
+        function addTask() {
+            const taskName = newTaskInput.value.trim();
+            if (taskName) {
+                tasks.push({
+                    id: Date.now().toString(),
+                    name: taskName,
+                    completed: false,
+                    dateAdded: new Date().toISOString()
+                });
+                newTaskInput.value = '';
+                saveTasks();
+                renderTasks();
+            }
+        }
+
+        /**
+         * Marca o desmarca una tarea como completada.
+         * @param {string} id - ID de la tarea.
+         */
+        function toggleTask(id) {
+            const taskIndex = tasks.findIndex(t => t.id === id);
+            if (taskIndex > -1) {
+                const task = tasks[taskIndex];
+                task.completed = !task.completed;
+                
+                // NUEVO: Rastreador de tareas completadas durante la sesión de trabajo
+                if (currentSessionType === 'work' && task.completed) {
+                    tasksCompletedDuringSession++;
+                } else if (currentSessionType === 'work' && !task.completed && tasksCompletedDuringSession > 0) {
+                    tasksCompletedDuringSession--;
+                }
+
+                saveTasks();
+                renderTasks(); // Re-renderizar para aplicar los estilos de línea tachada
+            }
+        }
+
+        /**
+         * Elimina una tarea por ID.
+         * @param {string} id - ID de la tarea.
+         */
+        function deleteTask(id) {
+            showConfirmModal(
+                getTranslation('deleteTaskTitle'), 
+                getTranslation('deleteTaskMessage'), 
+                () => {
+                    tasks = tasks.filter(t => t.id !== id);
+                    saveTasks();
+                    renderTasks();
+                }
+            );
+        }
+
+        // Manejador de tecla Enter para añadir tareas
+        newTaskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addTask();
+            }
+        });
+
+        // --- Lógica de Estadísticas (Chart.js y Sidebar) ---
+        let sessionHistory = [];
+        let currentStatsView = 'daily';
+
+        /**
+         * Alterna la visibilidad del sidebar de estadísticas.
+         */
+        function toggleStatsSidebar() {
+            statsSidebar.classList.toggle('-translate-x-full');
+            if (!statsSidebar.classList.contains('-translate-x-full')) {
+                // Si se abre, renderizar las estadísticas actuales
+                loadSessionHistory();
+                renderStats(currentStatsView);
+            }
+        }
+
+        /**
+         * Carga el historial de sesiones desde localStorage.
+         */
+        function loadSessionHistory() {
+            try {
+                const history = localStorage.getItem(HISTORY_KEY);
+                sessionHistory = history ? JSON.parse(history) : [];
+            } catch (e) {
+                console.error("Error loading session history:", e);
+                sessionHistory = [];
+            }
+        }
+
+        /**
+         * Registra una sesión completada (trabajo o descanso).
+         * @param {string} type - 'work' o 'break'.
+         * @param {number} duration - Duración en segundos.
+         * @param {number} [tasksCompleted=0] - Tareas completadas en la sesión (solo para 'work').
+         */
+        function recordPomodoroSession(type, duration, tasksCompleted = 0) {
+            if (type === 'break' && duration === 0) return; // No registrar descansos reiniciados/saltados
+
+            const newSession = {
+                id: Date.now(),
+                date: new Date().toISOString(),
+                type: type,
+                duration: duration, // Duración en segundos
+                tasksCompleted: type === 'work' ? tasksCompleted : 0
+            };
+            
+            sessionHistory.push(newSession);
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(sessionHistory));
+        }
+
+        /**
+         * Filtra y calcula las estadísticas clave para una vista dada.
+         * @param {string} view - 'daily', 'weekly', o 'monthly'.
+         * @returns {object} - Objeto con el historial filtrado y las métricas resumidas.
+         */
+        function getFilteredStats(view) {
+            const now = new Date();
+            let filterStart = new Date(0); // Epoch para mensual (por defecto todo)
+            
+            if (view === 'daily') {
+                filterStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            } else if (view === 'weekly') {
+                // Empezar hace 7 días
+                filterStart = new Date();
+                filterStart.setDate(now.getDate() - 7);
+                filterStart.setHours(0, 0, 0, 0);
+            } else if (view === 'monthly') {
+                // Empezar hace 30 días
+                filterStart = new Date();
+                filterStart.setDate(now.getDate() - 30);
+                filterStart.setHours(0, 0, 0, 0);
+            }
+            
+            const filteredHistory = sessionHistory.filter(session => {
+                const sessionDate = new Date(session.date);
+                return sessionDate >= filterStart;
+            });
+            
+            // Cálculo de métricas
+            const workSessions = filteredHistory.filter(s => s.type === 'work');
+            const totalPomodoros = workSessions.length;
+            const totalWorkSeconds = workSessions.reduce((sum, session) => sum + session.duration, 0);
+            const totalTasks = filteredHistory.reduce((sum, session) => sum + session.tasksCompleted, 0);
+            
+            const avgTasksPerPomo = totalPomodoros > 0 ? (totalTasks / totalPomodoros).toFixed(2) : 0;
+            
+            // Conversión a horas/minutos para la UI
+            const totalWorkHours = (totalWorkSeconds / 3600).toFixed(1);
+
+            return {
+                history: filteredHistory,
+                totalPomodoros,
+                totalWorkHours,
+                avgTasksPerPomo,
+                totalTasks
+            };
+        }
+
+        /**
+         * Renderiza las estadísticas en la UI y actualiza el gráfico.
+         * @param {string} view - 'daily', 'weekly', o 'monthly'.
+         */
+        function renderStats(view) {
+            const stats = getFilteredStats(view);
+            currentStatsView = view;
+            localStorage.setItem(STATS_VIEW, view);
+
+            // 1. Actualizar Resumen de Métricas
+            statsSummary.innerHTML = `
+                <!-- Total Pomodoros -->
+                <div class="p-3 rounded-xl text-center shadow-inner" style="background-color: var(--bg-control);">
+                    <p class="text-3xl font-bold" style="color: var(--color-work);">${stats.totalPomodoros}</p>
+                    <p class="text-sm" style="color: var(--text-secondary);">${getTranslation('statsPomodoros')}</p>
+                </div>
+                <!-- Total Horas de Trabajo -->
+                <div class="p-3 rounded-xl text-center shadow-inner" style="background-color: var(--bg-control);">
+                    <p class="text-3xl font-bold" style="color: var(--color-short-break);">${stats.totalWorkHours}</p>
+                    <p class="text-sm" style="color: var(--text-secondary);">${getTranslation('statsHours')}</p>
+                </div>
+                <!-- Tareas/Pomodoro -->
+                <div class="p-3 rounded-xl text-center shadow-inner" style="background-color: var(--bg-control);">
+                    <p class="text-3xl font-bold" style="color: var(--color-count);">${stats.avgTasksPerPomo}</p>
+                    <p class="text-sm" style="color: var(--text-secondary);">${getTranslation('statsTasksPerPomo')}</p>
+                </div>
+                <!-- Tareas Totales -->
+                <div class="p-3 rounded-xl text-center shadow-inner" style="background-color: var(--bg-control);">
+                    <p class="text-3xl font-bold" style="color: var(--color-accent);">${stats.totalTasks}</p>
+                    <p class="text-sm" style="color: var(--text-secondary);">${getTranslation('statsTotalTasks')}</p>
+                </div>
+            `;
+
+            // 2. Preparar Datos para el Gráfico
+            let chartData = [];
+            let chartLabels = [];
+            
+            // Agrupar por día (para semanal/mensual) o por hora (para diario)
+            const pomodorosGrouped = {};
+            
+            stats.history.forEach(s => {
+                if (s.type === 'work') {
+                    const date = new Date(s.date);
+                    let key;
+                    if (view === 'daily') {
+                        key = date.getHours(); // Agrupar por hora
+                    } else {
+                        key = date.toLocaleDateString('es-ES'); // Agrupar por día
+                    }
+                    pomodorosGrouped[key] = (pomodorosGrouped[key] || 0) + 1;
+                }
+            });
+
+            if (view === 'daily') {
+                chartLabels = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+                chartData = chartLabels.map((_, i) => pomodorosGrouped[i] || 0);
+            } else {
+                // Para semanal/mensual, mostrar solo los días con datos
+                chartLabels = Object.keys(pomodorosGrouped);
+                chartData = Object.values(pomodorosGrouped);
+            }
+
+            // 3. Inicializar o Actualizar Gráfico
+            initChart(chartData, chartLabels, view);
+            
+            // 4. Actualizar botones de vista
+            document.getElementById('view-daily').textContent = getTranslation('statsDaily');
+            document.getElementById('view-weekly').textContent = getTranslation('statsWeekly');
+            document.getElementById('view-monthly').textContent = getTranslation('statsMonthly');
+            
+            document.querySelectorAll('#stats-sidebar button').forEach(btn => {
+                const btnView = btn.id.replace('view-', '');
+                if (btnView === view) {
+                    btn.style.backgroundColor = 'var(--color-accent)';
+                    btn.style.color = 'white';
+                } else if (btn.id.startsWith('view-')) {
+                    btn.style.backgroundColor = 'var(--bg-app)';
+                    btn.style.color = 'var(--text-secondary)';
+                }
+            });
+        }
+
+        /**
+         * Cambia la vista de las estadísticas y las vuelve a renderizar.
+         * @param {string} view - 'daily', 'weekly', o 'monthly'.
+         */
+        function setStatsView(view) {
+            currentStatsView = view;
+            renderStats(view);
+        }
+
+        /**
+         * Inicializa o actualiza la instancia de Chart.js.
+         * @param {number[]} data - Los valores del gráfico.
+         * @param {string[]} labels - Las etiquetas del eje X.
+         * @param {string} view - Vista actual.
+         */
+        function initChart(data, labels, view) {
+            const ctx = document.getElementById('focus-chart').getContext('2d');
+            
+            // Colores del tema para el gráfico (actualizados en cada renderizado)
+            const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim();
+            const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim();
+            const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--bg-control').trim();
+            
+            const titleText = getTranslation('chartTitle');
+            const yAxisText = view === 'daily' ? getTranslation('chartYAxisHour') : getTranslation('chartYAxisDay');
+            const xAxisText = view === 'daily' ? getTranslation('chartXAxisHour') : getTranslation('chartXAxisDay');
+
+
+            if (chartInstance) {
+                chartInstance.data.labels = labels;
+                chartInstance.data.datasets[0].data = data;
+                chartInstance.data.datasets[0].backgroundColor = accentColor;
+                chartInstance.data.datasets[0].borderColor = accentColor;
+                chartInstance.options.scales.x.grid.color = gridColor;
+                chartInstance.options.scales.x.ticks.color = textColor;
+                chartInstance.options.scales.x.title.color = textColor;
+                chartInstance.options.scales.x.title.text = xAxisText;
+                chartInstance.options.scales.y.grid.color = gridColor;
+                chartInstance.options.scales.y.ticks.color = textColor;
+                chartInstance.options.scales.y.title.text = yAxisText;
+                chartInstance.options.scales.y.title.color = textColor;
+                chartInstance.options.plugins.title.text = titleText;
+                chartInstance.options.plugins.title.color = textColor;
+
+                chartInstance.update();
+                return;
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Pomodoros',
+                        data: data,
+                        backgroundColor: accentColor,
+                        borderColor: accentColor,
+                        borderWidth: 1,
+                        borderRadius: 5,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: titleText,
+                            color: textColor,
+                            font: { size: 16, weight: 'bold' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: gridColor },
+                            ticks: { color: textColor, maxRotation: 45, minRotation: 45 },
+                            title: { display: true, text: xAxisText, color: textColor }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: gridColor },
+                            ticks: { color: textColor, precision: 0 },
+                            title: { display: true, text: yAxisText, color: textColor }
+                        }
+                    }
+                }
+            });
+        }
+
+
+        // --- Inicialización ---
+
+        // Se ejecuta cuando la página está completamente cargada
+        window.onload = function() {
+            // Inicialización de Firebase (omito el código de Firebase ya que no es relevante para la lógica i18n, pero se mantiene en el archivo para la plataforma)
+            
+            // Cargar el idioma guardado y actualizar la UI
+            const savedLang = localStorage.getItem('pomodoroLang') || 'es';
+            document.getElementById('language-select').value = savedLang;
+            
+            loadSettings(); // Carga tema, colores y duraciones.
+            loadTasks(); // Carga las tareas
+            
+            setLanguage(savedLang); // Llama a la nueva función de i18n para actualizar toda la UI
+            
+            // Inicializar la vista de estadísticas con la vista guardada o 'daily'
+            currentStatsView = localStorage.getItem(STATS_VIEW) || 'daily';
+            // Nota: Las estadísticas se renderizarán solo cuando se abra el sidebar.
+        };
+        
+        // --- Firebase Boilerplate (Mantener para la plataforma) ---
+        let app;
+        let db;
+        let auth;
+        let userId;
+
+        try {
+            const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+            // Nota: La inicialización de Firebase se ha dejado aquí solo por ser boilerplate requerido.
+            // Si las librerías no están cargadas, esto generará un error de referencia.
+            // Para la ejecución en Canvas, las librerías se cargarán en la sección de imports.
+            
+            // Solo para evitar errores de referencia en el entorno de desarrollo:
+            /*
+            if (typeof initializeApp !== 'undefined') {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+            }
+            */
+
+        } catch (e) {
+            console.error("Error al inicializar Firebase.", e);
+        }
+        // --- FIN Firebase Boilerplate ---
+
+
+        // Exponer funciones al scope global para que los onclick funcionen
+        window.toggleTimer = toggleTimer;
+        window.resetTimer = resetTimer;
+        window.updateDurations = updateDurations;
+        window.toggleTheme = toggleTheme;
+        window.setCustomColor = setCustomColor;
+        window.toggleSidebar = toggleSidebar;
+        window.addTask = addTask;
+        window.toggleTask = toggleTask;
+        window.deleteTask = deleteTask;
+        window.toggleTemplateModal = toggleTemplateModal;
+        window.applyTemplate = applyTemplate;
+        window.promptAndSaveTemplate = promptAndSaveTemplate;
+        window.deleteCustomTemplate = deleteCustomTemplate;
+        // Funciones de modales
+        window.alertModal = alertModal;
+        window.showConfirmModal = showConfirmModal;
+        window.showPromptModal = showPromptModal;
+        // Funciones de estadísticas
+        window.toggleStatsSidebar = toggleStatsSidebar;
+        window.setStatsView = setStatsView;
+        // Funciones de idioma
+        window.setLanguage = setLanguage;
+
+    </script>
+
+</body>
+</html>
