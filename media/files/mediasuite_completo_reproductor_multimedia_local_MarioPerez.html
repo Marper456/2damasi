@@ -1,0 +1,3153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reproductor Multimedia y Herramientas</title>
+    <!-- Incluimos Tailwind CSS para un diseño moderno -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Incluimos Tone.js para la funcionalidad de audio -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <style>
+        /* Estilos generales para el layout */
+        body {
+            /* Evita el scroll horizontal, crucial para responsive */
+            overflow-x: hidden;
+            font-family: 'Inter', sans-serif;
+        }
+        /* Estilo para el día de hoy en el calendario */
+        .today {
+            background-color: #2563eb; /* Azul de Tailwind */
+            color: white;
+            box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+            /* Escala ligeramente para hacerlo destacar, especialmente en móvil */
+            transform: scale(1.05);
+            transition: transform 0.2s;
+        }
+        /* Marcador para días con multimedia asignado */
+        .has-media {
+            position: relative;
+        }
+        .has-media::after {
+            content: '';
+            position: absolute;
+            /* Ajustado para ser más visible en móvil */
+            bottom: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px; /* Más grande */
+            height: 8px; /* Más grande */
+            background-color: #34d399; /* Verde de Tailwind */
+            border-radius: 50%;
+        }
+        /* Ocultar modales por defecto */
+        #assignmentModal.hidden,
+        #imageModal.hidden,
+        #dayMediaModal.hidden {
+            display: none;
+        }
+        /* Ocultar reproductores por defecto */
+        #mediaAudioPlayer.hidden,
+        #mediaVideoPlayer.hidden {
+            display: none;
+        }
+
+        /* --- ESTILOS RESPONSIVE PERSONALIZADOS MEJORADOS --- */
+
+        /* Estilos para selector de idioma */
+        #languageSelector {
+            position: relative;
+        }
+
+        /* Modal de idiomas más responsive */
+        #languageModal > div {
+            width: 90vw;
+            max-width: 380px;
+        }
+
+        /* Panel de edición multimedia */
+        #mediaEditorPanel {
+            background: rgba(31, 41, 55, 0.8);
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+
+        /* Estilos responsive mejorados para sidebar */
+        @media (max-width: 767px) {
+            #sidebar {
+                /* En móviles, sidebar ocupa toda la altura */
+                transform: translateX(-100%);
+                width: 85vw;
+                max-width: 320px;
+            }
+            #sidebar.open {
+                transform: translateX(0);
+            }
+            #mainContentWrapper {
+                /* Reducir padding en móvil para aprovechar espacio */
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+                padding-top: 4rem; /* Espacio para el botón toggle */
+            }
+            /* Ajustar título en móvil */
+            .mobile-title-adjust {
+                margin-top: 0.5rem;
+            }
+        }
+
+        /* Optimizaciones para tablets */
+        @media (min-width: 768px) and (max-width: 1023px) {
+            #contentArea {
+                max-width: 95vw;
+            }
+        }
+
+        /* Estilos responsive para modal del editor UI */
+        @media (max-width: 640px) {
+            #uiEditorModal {
+                padding: 0.5rem;
+            }
+            #uiEditorModal > div {
+                padding: 1rem;
+                height: 95vh;
+            }
+        }
+
+        /* Mejoras para pantallas pequeñas en el calendario */
+        @media (max-width: 480px) {
+            #calendarGrid {
+                font-size: 0.875rem;
+            }
+            .calendar-day {
+                min-height: 35px;
+                font-size: 0.75rem;
+            }
+            /* Botones más grandes en móvil */
+            .mobile-button {
+                min-height: 44px;
+                font-size: 0.875rem;
+            }
+        }
+
+        /* Estilos para sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: #374151;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: none;
+        }
+
+        /* Estilos para vista previa */
+        #uiPreview {
+            border: 2px dashed #6b7280;
+            border-radius: 0.375rem;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+        }
+
+        /* Estilos para filtros activos */
+        .filter-active {
+            background-color: #3b82f6 !important;
+            color: white !important;
+        }
+
+        /* Estilos para botones de tema predefinido */
+        .theme-preset {
+            background-color: #4b5563;
+            color: #d1d5db;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .theme-preset:hover {
+            background-color: #6b7280;
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .theme-preset[data-theme="ocean"] {
+            background: linear-gradient(135deg, #0891b2 0%, #0ea5e9 100%);
+            color: white;
+        }
+
+        .theme-preset[data-theme="sunset"] {
+            background: linear-gradient(135deg, #ea580c 0%, #f97316 100%);
+            color: white;
+        }
+
+        .theme-preset[data-theme="forest"] {
+            background: linear-gradient(135deg, #047857 0%, #059669 100%);
+            color: white;
+        }
+
+        .theme-preset[data-theme="neon"] {
+            background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+            color: white;
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
+        }
+
+        .theme-preset[data-theme="pastel"] {
+            background: linear-gradient(135deg, #fbbf24 0%, #f472b6 100%);
+            color: white;
+        }
+
+        /* Estilos para modales de editor */
+        #uiEditorModal.hidden {
+            display: none;
+        }
+
+        /* Estilos para panel de configuración UI */
+        .color-picker {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        /* Estilos responsive para panel de edición */
+        @media (max-width: 767px) {
+            #sidebar {
+                /* Asegura que el sidebar esté inicialmente fuera de la vista */
+                transform: translateX(-100%);
+                width: 85vw; /* Ocupa un poco menos de la pantalla */
+                max-width: 320px;
+            }
+            #sidebar.open {
+                /* Abre el sidebar */
+                transform: translateX(0);
+            }
+            #mainContentWrapper {
+                /* Empuja el contenido ligeramente para evitar que el toggle quede justo en la esquina */
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+                padding-top: 4rem; /* Espacio para el botón toggle en móvil */
+            }
+            /* Mejor espaciado para botones en móvil */
+            .mobile-button-spacing {
+                padding: 0.75rem 1rem;
+            }
+        }
+
+        /* Optimizaciones para pantallas pequeñas de modales */
+        @media (max-width: 640px) {
+            .modal-content {
+                margin: 0.5rem;
+                max-height: 95vh;
+                overflow-y: auto;
+            }
+        }
+
+        /* Estilo personalizado para el slider de BPM */
+        #bpmSlider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #3b82f6; /* Tailwind blue-500 */
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(59, 130, 246, 0.8);
+        }
+        #bpmSlider::-moz-range-thumb {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+        }
+
+        /* --- BEAT MAKER RESPONSIVE --- */
+        /* Ajuste para que las celdas de ritmo sean más pequeñas en móvil */
+        .beat-cell {
+            /* Valor por defecto, funciona bien en desktop (5% de 16 pasos es 1/20) */
+            width: 5%;
+        }
+        @media (max-width: 640px) {
+            /* Aumentar la flexibilidad para que encaje mejor en pantallas muy pequeñas */
+            .beat-cell {
+                width: 4.8%; /* Ligeramente menos para evitar desbordamiento */
+                height: 30px; /* Reducir la altura en móvil */
+                margin: 0.5px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+
+    <!-- Sidebar (Barra Lateral) -->
+    <aside id="sidebar" class="fixed top-0 left-0 h-full w-72 sm:w-64 bg-gray-800 shadow-2xl transition-transform duration-300 transform -translate-x-full md:translate-x-0 z-50 p-4 sm:p-6 border-r border-gray-700">
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-blue-400 mb-6 sm:mb-8" data-announce="Título principal: MediaSuite.">MediaSuite</h2>
+
+        <nav class="space-y-4">
+            <button id="navCalendar" data-view="calendarView"
+                data-announce="Vista de Calendario y Asignación. Pulsa para ver el calendario."
+                class="w-full text-left p-3 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 transition-colors flex items-center space-x-2">
+                <!-- Icono de Calendario -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
+                <span>Calendario & Asignación</span>
+            </button>
+            <button id="navTools" data-view="mediaToolsView"
+                data-announce="Vista de Herramientas Multimedia. Pulsa para ver las utilidades."
+                class="w-full text-left p-3 rounded-lg font-semibold text-gray-300 hover:bg-gray-700 transition-colors flex items-center space-x-2">
+                <!-- Icono de Herramientas -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-wrench"><path d="M.2 11a10.92 10.92 0 0 0 10.9 10.9h1.8A10.92 10.92 0 0 0 23.8 11"/><path d="M21.5 6.5 17 2l-4 4 3 3 4.5-4.5z"/><path d="m11.1 12.3-4.5 4.5-3-3 4-4a4 4 0 0 1 3.5-1.1"/><path d="m12.3 11.1 4.5-4.5"/><path d="m18 18 1.5 1.5"/></svg>
+                <span>Herramientas Multimedia</span>
+            </button>
+            <!-- Nuevo botón de navegación -->
+            <button id="navBeats" data-view="beatMakerView"
+                data-announce="Vista de Máquina de Ritmos. Pulsa para crear música."
+                class="w-full text-left p-3 rounded-lg font-semibold text-gray-300 hover:bg-gray-700 transition-colors flex items-center space-x-2">
+                <!-- Icono de Batería/Ritmo -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-drum"><path d="M12 10a10 10 0 1 0 10 10"/><path d="M12 10a10 10 0 1 1-10 10"/><path d="M14 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/><path d="M10 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/><path d="M12 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+                <span>Máquina de Ritmos (Beats)</span>
+            </button>
+            <!-- Selector de Idioma -->
+            <button id="languageSelector"
+                class="w-full text-left p-3 rounded-lg font-semibold text-gray-300 hover:bg-gray-700 transition-colors flex items-center space-x-2 border-t border-gray-700 pt-4"
+                data-announce="Selector de idioma de la interfaz">
+                <!-- Icono de idioma -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-languages"><path d="m5 8 6 6"/><path d="m11 8 6 6"/><path d="M4.73 4.73 7.5 7.5"/><path d="M4.73 19.27 7.5 16.5"/><path d="M19.27 19.27 16.5 16.5"/><path d="M19.27 4.73 16.5 7.5"/><path d="M8 4v6"/><path d="M16 4v6"/><path d="M8 14v6"/><path d="M16 14v6"/></svg>
+                <span id="languageText">Español</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-down ml-auto"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+
+            <!-- Editor de UI -->
+            <button id="uiEditorToggle"
+                data-announce="Panel de edición avanzada de la interfaz de usuario."
+                class="w-full text-left p-3 rounded-lg font-semibold text-gray-300 hover:bg-gray-700 transition-colors flex items-center space-x-2">
+                <!-- Icono de editor -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-palette"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                <span id="uiEditorText">Editor UI</span>
+            </button>
+
+
+
+            <!-- NUEVO BOTÓN DE ACCESIBILIDAD -->
+            <button id="a11yAnnouncerToggle"
+                data-announce="Modo Lector de Accesibilidad. Pulsa para activar o desactivar la lectura por voz del contenido."
+                class="w-full text-left p-3 rounded-lg font-semibold text-gray-300 hover:bg-gray-700 transition-colors flex items-center space-x-2 mt-8 border-t border-gray-700 pt-4">
+                <!-- Icono de accesibilidad -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-accessibility"><circle cx="12" cy="5" r="1"/><path d="M10 12c-1.7 1.7-2 5.5-2 8"/><path d="M14 12c1.7 1.7 2 5.5 2 8"/><path d="M4 14h-.5a2.5 2.5 0 0 0 0 5h25"/></svg>
+                <span id="a11yAnnouncerText">Modo Lector (Desactivado)</span>
+            </button>
+        </nav>
+    </aside>
+
+    <!-- Overlay de Sombra para el Móvil -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden hidden"></div>
+
+    <!-- Modal de Selector de Idiomas -->
+    <div id="languageModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" data-announce="Modal de selección de idioma abierto. Pulse en un idioma para cambiar la interfaz.">
+        <div class="bg-gray-800 rounded-xl p-6 w-80 max-w-full mx-4 border border-gray-700" data-announce="Ventana modal para seleccionar el idioma de la interfaz.">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-white" data-announce="Título del modal: Seleccionar Idioma.">Seleccionar Idioma</h3>
+                <button id="languageModalClose" class="text-gray-400 hover:text-white" data-announce="Botón para cerrar el modal de idiomas.">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="space-y-2" data-announce="Lista de idiomas disponibles para seleccionar.">
+                <button class="language-option w-full text-left p-3 rounded hover:bg-gray-700 transition-colors flex items-center space-x-3" data-lang="es" data-announce="Opción de idioma: Español. Pulse para cambiar la interfaz a español.">
+                    <span class="text-2xl" aria-hidden="true">🇪🇸</span>
+                    <span class="text-white">Español</span>
+                </button>
+                <button class="language-option w-full text-left p-3 rounded hover:bg-gray-700 transition-colors flex items-center space-x-3" data-lang="en" data-announce="Opción de idioma: Inglés. Pulse para cambiar la interfaz a inglés.">
+                    <span class="text-2xl" aria-hidden="true">🇺🇸</span>
+                    <span class="text-white">English</span>
+                </button>
+                <button class="language-option w-full text-left p-3 rounded hover:bg-gray-700 transition-colors flex items-center space-x-3" data-lang="fr" data-announce="Opción de idioma: Francés. Pulse para cambiar la interfaz a francés.">
+                    <span class="text-2xl" aria-hidden="true">🇫🇷</span>
+                    <span class="text-white">Français</span>
+                </button>
+                <button class="language-option w-full text-left p-3 rounded hover:bg-gray-700 transition-colors flex items-center space-x-3" data-lang="de" data-announce="Opción de idioma: Alemán. Pulse para cambiar la interfaz a alemán.">
+                    <span class="text-2xl" aria-hidden="true">🇩🇪</span>
+                    <span class="text-white">Deutsch</span>
+                </button>
+                <button class="language-option w-full text-left p-3 rounded hover:bg-gray-700 transition-colors flex items-center space-x-3" data-lang="pt" data-announce="Opción de idioma: Portugués. Pulse para cambiar la interfaz a portugués.">
+                    <span class="text-2xl" aria-hidden="true">🇵🇹</span>
+                    <span class="text-white">Português</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal del Editor de UI -->
+    <div id="uiEditorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4" data-announce="Modal del editor avanzado de interfaz abierto. Personaliza colores, tipografía y espaciado.">
+        <div class="bg-gray-800 rounded-xl p-3 sm:p-6 w-full max-w-6xl h-[95vh] sm:h-auto sm:max-h-[90vh] border border-gray-700 overflow-hidden" data-announce="Ventana modal para editar la apariencia de la interfaz de usuario.">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold text-white" data-announce="Título del modal: Editor Avanzado de Interfaz.">Editor Avanzado de Interfaz</h3>
+                <button id="uiEditorModalClose" class="text-gray-400 hover:text-white" data-announce="Botón para cerrar el modal del editor de interfaz.">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-6 h-full overflow-hidden">
+                <!-- Panel de Configuración -->
+                <div class="space-y-3 lg:space-y-6 overflow-y-auto pr-2" style="max-height: calc(95vh - 120px);">
+                    <!-- Colores del Tema -->
+                    <div class="bg-gray-700 p-3 lg:p-4 rounded-lg" data-announce="Sección de configuración de colores del tema.">
+                        <h4 class="text-base lg:text-lg font-semibold text-white mb-3 lg:mb-4" data-announce="Título de la sección: Colores del Tema.">Colores del Tema</h4>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-4">
+                            <div data-announce="Control para seleccionar el color primario de la interfaz.">
+                                <label class="block text-sm font-medium text-gray-300 mb-2" data-announce="Etiqueta: Color Primario. Configure el color principal de la interfaz.">Color Primario</label>
+                                <input type="color" id="primaryColorPicker" class="color-picker" value="#3b82f6" data-announce="Selector de color primario. El color actual es azul.">
+                            </div>
+                            <div data-announce="Control para seleccionar el color secundario de la interfaz.">
+                                <label class="block text-sm font-medium text-gray-300 mb-2" data-announce="Etiqueta: Color Secundario. Configure el color secundario de la interfaz.">Color Secundario</label>
+                                <input type="color" id="secondaryColorPicker" class="color-picker" value="#6b7280" data-announce="Selector de color secundario. El color actual es gris.">
+                            </div>
+                            <div data-announce="Control para seleccionar el color de fondo de la interfaz.">
+                                <label class="block text-sm font-medium text-gray-300 mb-2" data-announce="Etiqueta: Color de Fondo. Configure el color de fondo de la interfaz.">Color de Fondo</label>
+                                <input type="color" id="bgColorPicker" class="color-picker" value="#1f2937" data-announce="Selector de color de fondo. El color actual es gris oscuro.">
+                            </div>
+                            <div data-announce="Control para seleccionar el color del texto de la interfaz.">
+                                <label class="block text-sm font-medium text-gray-300 mb-2" data-announce="Etiqueta: Color de Texto. Configure el color del texto de la interfaz.">Color de Texto</label>
+                                <input type="color" id="textColorPicker" class="color-picker" value="#ffffff" data-announce="Selector de color de texto. El color actual es blanco.">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tipografía -->
+                    <div class="bg-gray-700 p-3 lg:p-4 rounded-lg" data-announce="Sección de configuración de tipografía.">
+                        <h4 class="text-base lg:text-lg font-semibold text-white mb-3 lg:mb-4" data-announce="Título de la sección: Tipografía.">Tipografía</h4>
+                        <div class="space-y-3 lg:space-y-4">
+                            <div data-announce="Control para seleccionar la familia de fuente.">
+                                <label class="block text-sm font-medium text-gray-300 mb-2" data-announce="Etiqueta: Familia de Fuente. Elija el tipo de letra para la interfaz.">Familia de Fuente</label>
+                                <select id="fontFamilyPicker" class="w-full bg-gray-600 text-white p-2 rounded border border-gray-500" data-announce="Selector de familia de fuente. La fuente actual es Inter.">
+                                    <option value="Inter">Inter</option>
+                                    <option value="Arial">Arial</option>
+                                    <option value="Georgia">Georgia</option>
+                                    <option value="Times New Roman">Times New Roman</option>
+                                    <option value="Courier New">Courier New</option>
+                                    <option value="Roboto">Roboto</option>
+                                    <option value="Open Sans">Open Sans</option>
+                                </select>
+                            </div>
+                            <div data-announce="Control deslizante para ajustar el tamaño base de la fuente.">
+                                <label class="block text-sm font-medium text-gray-300 mb-2" data-announce="Etiqueta: Tamaño Base. Configure el tamaño de letra de la interfaz.">Tamaño Base: <span id="fontSizeValue">16px</span></label>
+                                <input type="range" id="fontSizePicker" min="12" max="24" value="16" class="w-full" data-announce="Deslizador de tamaño de fuente. Rango de 12 a 24 píxeles. Valor actual: 16 píxeles.">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Espaciado -->
+                    <div class="bg-gray-700 p-3 lg:p-4 rounded-lg" data-announce="Sección de configuración de espaciado y bordes.">
+                        <h4 class="text-base lg:text-lg font-semibold text-white mb-3 lg:mb-4" data-announce="Título de la sección: Espaciado y Bordes.">Espaciado y Bordes</h4>
+                        <div class="space-y-3 lg:space-y-4">
+                            <div data-announce="Control deslizante para ajustar el radio del borde.">
+                                <label class="block text-sm font-medium text-gray-300 mb-2" data-announce="Etiqueta: Border Radius. Configure la curvatura de los bordes.">Border Radius: <span id="borderRadiusValue">8px</span></label>
+                                <input type="range" id="borderRadiusPicker" min="0" max="20" value="8" class="w-full" data-announce="Deslizador de radio del borde. Rango de 0 a 20 píxeles. Valor actual: 8 píxeles.">
+                            </div>
+                            <div data-announce="Control deslizante para ajustar el espaciado interior.">
+                                <label class="block text-sm font-medium text-gray-300 mb-2" data-announce="Etiqueta: Padding. Configure el espaciado interior de los elementos.">Padding: <span id="paddingValue">16px</span></label>
+                                <input type="range" id="paddingPicker" min="8" max="32" value="16" class="w-full" data-announce="Deslizador de padding. Rango de 8 a 32 píxeles. Valor actual: 16 píxeles.">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Temas Predefinidos -->
+                    <div class="bg-gray-700 p-3 lg:p-4 rounded-lg" data-announce="Sección de temas predefinidos para aplicar estilos rápidamente.">
+                        <h4 class="text-base lg:text-lg font-semibold text-white mb-3 lg:mb-4" data-announce="Título de la sección: Temas Predefinidos.">Temas Predefinidos</h4>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <button class="theme-preset p-3 rounded text-sm font-medium transition-colors" data-theme="default" data-announce="Botón de tema: Por Defecto. Aplica los colores estándar de la interfaz.">Por Defecto</button>
+                            <button class="theme-preset p-3 rounded text-sm font-medium transition-colors" data-theme="ocean" data-announce="Botón de tema: Océano. Aplica un esquema de colores azul y turquesa.">Océano</button>
+                            <button class="theme-preset p-3 rounded text-sm font-medium transition-colors" data-theme="sunset" data-announce="Botón de tema: Atardecer. Aplica un esquema de colores naranja y rojo.">Atardecer</button>
+                            <button class="theme-preset p-3 rounded text-sm font-medium transition-colors" data-theme="forest" data-announce="Botón de tema: Bosque. Aplica un esquema de colores verde.">Bosque</button>
+                            <button class="theme-preset p-3 rounded text-sm font-medium transition-colors" data-theme="neon" data-announce="Botón de tema: Neón. Aplica un esquema de colores púrpura con efecto brillante.">Neón</button>
+                            <button class="theme-preset p-3 rounded text-sm font-medium transition-colors" data-theme="pastel" data-announce="Botón de tema: Pastel. Aplica un esquema de colores suave y claro.">Pastel</button>
+                        </div>
+                    </div>
+
+                    <!-- Acciones -->
+                    <div class="flex space-x-4" data-announce="Botones de acciones para el editor de interfaz.">
+                        <button id="resetUI" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors" data-announce="Botón para resetear todos los cambios y volver a la configuración por defecto.">Resetear</button>
+                        <button id="exportUISettings" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors" data-announce="Botón para exportar la configuración actual de la interfaz como archivo.">Exportar</button>
+                    </div>
+                </div>
+
+                <!-- Vista Previa -->
+                <div class="bg-gray-700 p-3 lg:p-4 rounded-lg flex flex-col" data-announce="Área de vista previa en vivo de los cambios aplicados.">
+                    <h4 class="text-base lg:text-lg font-semibold text-white mb-3 lg:mb-4" data-announce="Título de la sección: Vista Previa en Vivo.">Vista Previa en Vivo</h4>
+                    <div id="uiPreview" class="bg-gray-800 p-3 lg:p-4 rounded border-2 border-dashed border-gray-500 flex-1 min-h-[200px] lg:min-h-96" data-announce="Vista previa de ejemplo mostrando cómo se vería la interfaz con los colores seleccionados.">
+                        <div class="space-y-3">
+                            <div class="w-full h-4 bg-gray-600 rounded" style="background-color: var(--preview-primary);" data-announce="Barra de ejemplo con color primario."></div>
+                            <div class="w-3/4 h-4 bg-gray-600 rounded" style="background-color: var(--preview-secondary);" data-announce="Barra de ejemplo con color secundario."></div>
+                            <div class="w-1/2 h-4 bg-gray-600 rounded" data-announce="Barra de ejemplo con color de fondo."></div>
+                            <button class="px-4 py-2 rounded font-medium transition-colors" id="previewButton" style="background-color: var(--preview-primary); color: white;" data-announce="Botón de ejemplo mostrando el estilo aplicado.">
+                                Botón de Ejemplo
+                            </button>
+                            <div class="p-4 rounded border-2" style="border-color: var(--preview-secondary); background-color: var(--preview-bg); color: var(--preview-text);" data-announce="Área de contenido de ejemplo con el tema aplicado.">
+                                <p class="text-sm" data-announce="Texto de ejemplo en el área de contenido con el tema personalizado aplicado.">Texto de ejemplo en el área de contenido con el tema personalizado aplicado.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botón para Abrir/Cerrar Sidebar (Solo en Móvil) -->
+    <button id="sidebarToggle"
+        data-announce="Botón para abrir o cerrar el menú de navegación lateral."
+        class="fixed top-4 left-4 z-50 p-2 bg-blue-600 rounded-lg md:hidden transition-all duration-300 shadow-lg">
+        <!-- Icono de Menú -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-menu text-white"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+    </button>
+
+    <!-- Contenido Principal -->
+    <div id="mainContentWrapper" class="md:ml-64 transition-all duration-300 w-full p-2 sm:p-4 md:p-6 lg:p-8">
+
+        <!-- Área de contenido que se alterna -->
+        <div id="contentArea" class="max-w-7xl mx-auto w-full"> <!-- Aumentado a max-w-7xl para aprovechar aún más el espacio -->
+
+            <!-- Vista 1: Calendario y Carga -->
+            <section id="calendarView" class="block">
+                <header class="text-center mb-8" data-announce="Sección principal: Calendario de Asignación.">
+                    <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-2">Calendario de Asignación</h1>
+                    <p class="text-gray-400 text-lg">Carga archivos, asígnalos a días y reprodúcelos.</p>
+                </header>
+
+                <!-- Sección de Carga de Archivos -->
+                <section class="bg-gray-800 p-4 sm:p-6 rounded-xl shadow-xl mb-8 border border-gray-700">
+                    <h2 class="text-2xl font-semibold mb-4" data-announce="Subsección: Carga tus Archivos Multimedia.">1. Carga tus Archivos Multimedia</h2>
+                    <p class="text-gray-400 mb-4">Selecciona los archivos (audio, video o fotos) de tu dispositivo. Se guardan localmente en tu navegador.</p>
+                    <input type="file" id="fileInput" multiple accept="audio/*,video/*,image/*"
+                        data-announce="Campo de entrada para seleccionar archivos multimedia a cargar."
+                        class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"/>
+                    <div id="loadedFilesList"
+                        data-announce="Lista de archivos multimedia cargados actualmente."
+                        class="mt-4 p-3 bg-gray-700 rounded-lg text-sm text-gray-300 max-h-40 overflow-y-auto"></div>
+                </section>
+
+                <!-- Sección del Calendario -->
+                <section class="bg-gray-800 p-4 sm:p-6 rounded-xl shadow-xl border border-gray-700">
+                    <h2 class="text-2xl font-semibold mb-4 text-center" data-announce="Subsección: Calendario Interactivo.">2. Calendario Interactivo</h2>
+                    <p class="text-gray-400 mb-6 text-center">Haz clic en un día para reproducir o ver su contenido. Si no tiene, podrás asignárselo.</p>
+
+                    <!-- Controles del Calendario -->
+                    <div class="flex justify-between items-center mb-4">
+                        <button id="prevMonth"
+                            data-announce="Botón para ver el mes anterior."
+                            class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded-lg transition-colors shadow-md text-sm md:text-base">&lt; Anterior</button>
+                        <h3 id="monthYear"
+                            data-announce="Mes y año actuales en el calendario."
+                            class="text-xl md:text-2xl font-bold capitalize"></h3>
+                        <button id="nextMonth"
+                            data-announce="Botón para ver el mes siguiente."
+                            class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded-lg transition-colors shadow-md text-sm md:text-base">Siguiente &gt;</button>
+                    </div>
+
+                    <!-- Grid del Calendario -->
+                    <div id="calendarGrid"
+                        data-announce="Cuadrícula del calendario."
+                        class="grid grid-cols-7 gap-1 md:gap-2 text-xs md:text-base">
+                        <!-- Encabezados de los días -->
+                        <div class="text-center font-semibold text-gray-400 text-sm md:text-base" data-announce="Día de la semana: Domingo.">DO</div>
+                        <div class="text-center font-semibold text-gray-400 text-sm md:text-base" data-announce="Día de la semana: Lunes.">LU</div>
+                        <div class="text-center font-semibold text-gray-400 text-sm md:text-base" data-announce="Día de la semana: Martes.">MA</div>
+                        <div class="text-center font-semibold text-gray-400 text-sm md:text-base" data-announce="Día de la semana: Miércoles.">MI</div>
+                        <div class="text-center font-semibold text-gray-400 text-sm md:text-base" data-announce="Día de la semana: Jueves.">JU</div>
+                        <div class="text-center font-semibold text-gray-400 text-sm md:text-base" data-announce="Día de la semana: Viernes.">VI</div>
+                        <div class="text-center font-semibold text-gray-400 text-sm md:text-base" data-announce="Día de la semana: Sábado.">SÁ</div>
+
+                        <!-- Los días se generarán con JavaScript -->
+                    </div>
+                </section>
+            </section>
+
+            <!-- Vista 2: Herramientas Multimedia (TTS y Conversión) -->
+            <section id="mediaToolsView" class="hidden">
+                <header class="text-center mb-8" data-announce="Sección principal: Herramientas de Creación y Utilidad.">
+                    <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">Herramientas de Creación y Utilidad</h1>
+                    <p class="text-gray-400 text-lg">Crea audio a partir de texto, convierte formatos y exporta datos.</p>
+                </header>
+
+                <!-- Herramienta 1: Texto a Voz (TTS LOCAL) -->
+                <section class="bg-gray-800 p-4 sm:p-6 rounded-xl shadow-xl mb-8 border border-gray-700">
+                    <h2 class="text-xl md:text-2xl font-semibold mb-4 flex items-center space-x-2" data-announce="Subsección: Crear Audio, Texto a Voz Local.">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-volume-2"><path d="M11 5L6 9H2V15H6L11 19V5Z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                        <span>Crear Audio (Texto a Voz Local)</span>
+                    </h2>
+                    <p class="text-gray-400 mb-4">Escribe el texto. Puedes reproducirlo en tu navegador.</p>
+                    <textarea id="ttsText" rows="4"
+                        data-announce="Área de texto para ingresar el texto a convertir en voz."
+                        class="w-full bg-gray-700 p-3 rounded-lg text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 mb-4" placeholder="Escribe el texto que quieres que tu navegador reproduzca..."></textarea>
+
+                    <button id="ttsGenerate"
+                        data-announce="Botón para reproducir el texto ingresado utilizando la síntesis de voz del navegador."
+                        class="bg-green-600 w-full hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-md disabled:bg-green-800 disabled:opacity-75 mb-4">
+                        Reproducir Voz (TTS)
+                    </button>
+
+                    <div id="ttsStatus" class="mt-4 hidden text-sm p-2 rounded-lg text-center"></div>
+                </section>
+
+                <!-- Herramienta 2: Conversión Multimedia (Simulación) -->
+                <section class="bg-gray-800 p-4 sm:p-6 rounded-xl shadow-xl mb-8 border border-gray-700">
+                    <h2 class="text-xl md:text-2xl font-semibold mb-4 flex items-center space-x-2" data-announce="Subsección: Conversor Multimedia, simulación.">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shuffle"><path d="M12.9 5.6c.1.2.3.3.5.4l5.8 1.4c.5.1 1.1-.3 1.2-.9s-.3-1.1-.9-1.2l-5.8-1.4c-.2 0-.4-.1-.5-.1-.7-.1-1.3.4-1.4 1s.4 1.3 1.1 1.4z"/><path d="M3.2 8.4c-.6.1-1.1.7-1 1.2.1.2.2.4.4.5l5.8 1.4c.5.1 1.1-.3 1.2-.9s-.3-1.1-.9-1.2L3.2 8.4z"/><path d="M12.9 18.4c.1-.2.3-.3.5-.4l5.8-1.4c.6-.1 1.1.3 1.2.9s-.3 1.1-.9 1.2l-5.8 1.4c-.2 0-.4.1-.5.1-.7.1-1.3-.4-1.4-1s.4-1.3 1.1-1.4z"/><path d="M3.2 15.6c-.6-.1-1.1-.7-1 1.2.1-.2.2.4.4.5l5.8-1.4c.6-.1 1.1.3 1.2.9s-.3 1.1-.9 1.2L3.2 15.6z"/></svg>
+                        <span>Conversor Multimedia (Simulación)</span>
+                    </h2>
+                    <p class="text-gray-400 mb-4">Simulación de conversión. Selecciona un archivo cargado y un formato de salida.</p>
+
+                    <label for="conversionFileSelect" class="block text-sm font-medium text-gray-300 mb-2">Archivo a convertir:</label>
+                    <select id="conversionFileSelect"
+                        data-announce="Selector de archivo para la conversión. Elige un archivo cargado."
+                        class="w-full bg-gray-700 text-white p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4">
+                        <!-- Archivos cargados se llenarán con JS -->
+                    </select>
+
+                    <label for="conversionTargetSelect" class="block text-sm font-medium text-gray-300 mb-2">Formato de salida:</label>
+                    <select id="conversionTargetSelect"
+                        data-announce="Selector del formato de salida deseado para la conversión."
+                        class="w-full bg-gray-700 text-white p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6">
+                        <!-- Formatos de salida se llenarán con JS -->
+                    </select>
+
+                    <button id="convertMediaButton"
+                        data-announce="Botón para iniciar la simulación de conversión."
+                        class="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-md disabled:bg-yellow-800 disabled:opacity-75">
+                        Convertir Archivo
+                    </button>
+
+                    <div id="conversionStatus" class="mt-4 text-sm p-2 rounded-lg text-center hidden">
+                        <!-- Aquí se muestra el estado y el botón de descarga -->
+                    </div>
+                </section>
+
+                <!-- Herramienta 3: Exportar Asignaciones -->
+                <section class="bg-gray-800 p-4 sm:p-6 rounded-xl shadow-xl mb-8 border border-gray-700">
+                    <h2 class="text-xl md:text-2xl font-semibold mb-4 flex items-center space-x-2" data-announce="Subsección: Exportar Todos los Datos.">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                        <span>Exportar Todos los Datos</span>
+                    </h2>
+                    <p class="text-gray-400 mb-4">Descarga un archivo JSON con todas las asignaciones del calendario Y los archivos multimedia (codificados en Base64).</p>
+
+                    <button id="exportCalendarButton"
+                        data-announce="Botón para descargar un archivo de copia de seguridad con todas las asignaciones y archivos."
+                        class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-md">
+                        Descargar Archivo JSON de Backup
+                    </button>
+                </section>
+
+                <!-- Herramienta 4: Importar Asignaciones -->
+                <section class="bg-gray-800 p-4 sm:p-6 rounded-xl shadow-xl mb-8 border border-gray-700">
+                    <h2 class="text-xl md:text-2xl font-semibold mb-4 flex items-center space-x-2" data-announce="Subsección: Importar Asignaciones.">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-upload"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                        <span>Importar Todos los Datos</span>
+                    </h2>
+                    <p class="text-gray-400 mb-4">Sube un archivo JSON de backup para **reemplazar** todas las asignaciones y cargar los archivos multimedia en tu navegador.</p>
+
+                    <input type="file" id="importCalendarInput" accept=".json"
+                        data-announce="Campo para seleccionar y subir un archivo JSON de copia de seguridad."
+                        class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer"/>
+                </section>
+
+            </section>
+
+            <!-- Vista 3: Máquina de Ritmos -->
+            <section id="beatMakerView" class="hidden">
+                <header class="text-center mb-8" data-announce="Sección principal: Máquina de Ritmos Simple.">
+                    <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">Máquina de Ritmos Simple</h1>
+                    <p class="text-gray-400 text-lg">Crea un patrón rítmico con sonidos básicos. (Requiere iniciar audio)</p>
+                </header>
+
+                <section class="bg-gray-800 p-4 sm:p-6 rounded-xl shadow-xl border border-gray-700">
+                    <h2 class="text-2xl font-semibold mb-4" data-announce="Subsección: Secuenciador de Ritmos.">Secuenciador</h2>
+
+                    <div class="flex flex-col sm:flex-row items-center justify-between mb-4 space-y-3 sm:space-y-0">
+                        <label for="bpmSlider" class="text-gray-300" data-announce="Control de Beats por Minuto. El valor actual es de 120. Usa el deslizador para cambiar.">BPM: <span id="bpmDisplay">120</span></label>
+                        <!-- El slider es w-full en móvil y se reduce en desktop -->
+                        <input type="range" id="bpmSlider" min="60" max="200" value="120"
+                            data-announce="Deslizador para ajustar los Beats por Minuto (BPM)."
+                            class="w-full sm:w-1/3 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer range-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div id="transportControls" class="flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-4 mb-6">
+                        <button id="startStopBeats"
+                            data-announce="Botón Iniciar Ritmo. Pulsa para comenzar o detener la reproducción del patrón."
+                            class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-full transition-colors shadow-lg flex items-center justify-center space-x-2 w-full sm:w-auto">
+                            <svg id="playIcon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-play"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            <svg id="stopIcon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-square hidden"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/></svg>
+                            <span>Iniciar Ritmo</span>
+                        </button>
+                        <button id="clearBeats"
+                            data-announce="Botón Limpiar Patrón. Pulsa para borrar todos los pasos activados del patrón rítmico."
+                            class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full transition-colors shadow-lg w-full sm:w-auto">
+                            Limpiar Patrón
+                        </button>
+                        <!-- NUEVO BOTÓN DE DESCARGA -->
+                        <button id="downloadBeats"
+                            data-announce="Botón Descargar Beat. Pulsa para grabar el patrón actual y descargarlo como un archivo WAV."
+                            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full transition-colors shadow-lg w-full sm:w-auto disabled:opacity-50 flex items-center justify-center space-x-2">
+                            <!-- Icono de Descarga -->
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                            <span>Descargar Beat (WAV)</span>
+                        </button>
+                    </div>
+
+                    <!-- Grid del Beat Maker -->
+                    <div id="beatGrid" class="space-y-2 overflow-x-auto">
+                        <!-- Añadido overflow-x-auto para evitar el desbordamiento forzando un scroll horizontal local -->
+                    </div>
+                    <div id="beatStatus" class="mt-4 hidden text-sm p-2 rounded-lg text-center bg-yellow-900/50 text-yellow-300">
+                        Pulsa "Iniciar Ritmo" para comenzar el motor de audio.
+                    </div>
+                </section>
+            </section>
+        </div>
+
+        <!-- Reproductores de Multimedia -->
+        <audio id="mediaAudioPlayer" class="w-full mt-8 hidden max-w-4xl mx-auto" controls></audio>
+        <video id="mediaVideoPlayer" class="w-full mt-8 hidden max-w-4xl mx-auto" controls></video>
+
+        <!-- Mensaje de Error/Estado -->
+        <div id="statusMessage"
+            data-announce="Mensaje de estado o error de la aplicación."
+            class="hidden text-center text-yellow-400 mt-4 p-3 bg-yellow-900/50 rounded-lg max-w-4xl mx-auto"></div>
+
+    </div>
+
+    <!-- Modal para Asignar Multimedia -->
+    <div id="assignmentModal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-sm border border-gray-700">
+            <h4 id="modalTitle" class="text-2xl font-bold mb-4" data-announce="Modal de Asignación de Multimedia.">Asignar Multimedia</h4>
+            <p class="text-gray-400 mb-6">Selecciona un archivo multimedia de los que has cargado para asignarlo a este día.</p>
+            <select id="mediaSelect"
+                data-announce="Selector de archivos multimedia disponibles."
+                class="w-full bg-gray-700 text-white p-3 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6">
+                <!-- Opciones se generarán con JavaScript -->
+            </select>
+            <div class="flex justify-end gap-4">
+                <button id="cancelButton"
+                    data-announce="Botón Cancelar. Cierra el modal sin guardar cambios."
+                    class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition-colors">Cancelar</button>
+                <button id="saveButton"
+                    data-announce="Botón Guardar. Asigna el archivo seleccionado al día actual."
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Ver Imagen -->
+    <div id="imageModal" class="hidden fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 z-50">
+        <div class="relative bg-gray-900 p-4 rounded-xl shadow-2xl max-w-3xl w-full border border-gray-700">
+            <button id="imageModalClose"
+                data-announce="Botón para cerrar la vista de la imagen. Está situado en la esquina superior derecha."
+                class="absolute -top-4 -right-4 bg-red-600 hover:bg-red-700 text-white w-10 h-10 rounded-full font-bold text-lg z-10 shadow-lg">&times;</button>
+            <img id="imageModalImg" src="" alt="Vista previa de imagen" class="w-full h-auto max-h-[80vh] object-contain rounded-lg">
+        </div>
+    </div>
+
+    <!-- Modal para Lista de Multimedia del Día -->
+    <div id="dayMediaModal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
+            <h4 id="dayMediaModalTitle" class="text-2xl font-bold mb-4" data-announce="Modal de Multimedia del Día.">Multimedia del Día</h4>
+            <p class="text-gray-400 mb-6">Selecciona un archivo para ver o reproducir.</p>
+
+            <!-- Lista de archivos del día -->
+            <div id="dayMediaList"
+                data-announce="Lista de archivos multimedia asignados a la fecha actual."
+                class="max-h-60 overflow-y-auto mb-6 space-y-2">
+                <!-- Items se generarán con JavaScript -->
+            </div>
+
+            <div class="flex justify-between gap-4">
+                <button id="dayMediaModalClose"
+                    data-announce="Botón Cerrar. Cierra el modal de lista de multimedia."
+                    class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition-colors">Cerrar</button>
+                <button id="addMoreMediaButton"
+                    data-announce="Botón Añadir más. Abre el modal de asignación para añadir otro archivo."
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Añadir más</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden hidden"></div>
+
+    <script>
+        // Utilizando window.onload para asegurar que todos los elementos existan,
+        // corrigiendo el error inicial de addEventListener.
+        window.onload = function() {
+
+            // --- UTILIDADES ---
+
+            // Función para convertir Blob a Base64
+            function blobToBase64(blob) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            }
+
+            // Función para convertir Base64 (Data URL) a Blob
+            function base64ToBlob(base64, mimeType) {
+                // Elimina el prefijo de Data URL (e.g., "data:audio/mp3;base64,")
+                const base64Data = base64.split(',')[1];
+                const byteCharacters = atob(base64Data);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                return new Blob([byteArray], { type: mimeType });
+            }
+
+            // Función para descargar un Blob
+            function downloadBlob(blob, filename) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            // --- CONSTANTES ---
+            const conversionTargetFormats = [
+                { mime: 'audio/mp3', ext: 'mp3', type: 'Audio' },
+                { mime: 'audio/wav', ext: 'wav', type: 'Audio' },
+                { mime: 'audio/ogg', ext: 'ogg', type: 'Audio' },
+                { mime: 'video/mp4', ext: 'mp4', type: 'Video' },
+                { mime: 'video/webm', ext: 'webm', type: 'Video' },
+                { mime: 'image/png', ext: 'png', type: 'Image' },
+                { mime: 'image/jpeg', ext: 'jpg', type: 'Image' }
+            ];
+
+            // --- REFERENCIAS DEL DOM ---
+            const fileInput = document.getElementById('fileInput');
+            const loadedFilesList = document.getElementById('loadedFilesList');
+            const calendarGrid = document.getElementById('calendarGrid');
+            const monthYear = document.getElementById('monthYear');
+            const prevMonth = document.getElementById('prevMonth');
+            const nextMonth = document.getElementById('nextMonth');
+            const mediaAudioPlayer = document.getElementById('mediaAudioPlayer');
+            const mediaVideoPlayer = document.getElementById('mediaVideoPlayer');
+            const statusMessage = document.getElementById('statusMessage');
+
+            // Sidebar y Vistas
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebarOverlay = document.getElementById('sidebarOverlay'); // Nuevo overlay
+            const navCalendar = document.getElementById('navCalendar');
+            const navTools = document.getElementById('navTools');
+            const navBeats = document.getElementById('navBeats');
+            const calendarView = document.getElementById('calendarView');
+            const mediaToolsView = document.getElementById('mediaToolsView');
+            const beatMakerView = document.getElementById('beatMakerView');
+
+            // Beat Maker
+            const beatGrid = document.getElementById('beatGrid');
+            const startStopBeats = document.getElementById('startStopBeats');
+            const clearBeats = document.getElementById('clearBeats');
+            const downloadBeats = document.getElementById('downloadBeats'); // NUEVO BOTÓN
+            const bpmSlider = document.getElementById('bpmSlider');
+            const bpmDisplay = document.getElementById('bpmDisplay');
+            const beatStatus = document.getElementById('beatStatus');
+            const playIcon = document.getElementById('playIcon');
+            const stopIcon = document.getElementById('stopIcon');
+
+            // Modal Asignación
+            const modal = document.getElementById('assignmentModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const mediaSelect = document.getElementById('mediaSelect');
+            const saveButton = document.getElementById('saveButton');
+            const cancelButton = document.getElementById('cancelButton');
+
+            // Modal Imagen
+            const imageModal = document.getElementById('imageModal');
+            const imageModalImg = document.getElementById('imageModalImg');
+            const imageModalClose = document.getElementById('imageModalClose');
+
+            // Modal Lista del Día
+            const dayMediaModal = document.getElementById('dayMediaModal');
+            const dayMediaModalTitle = document.getElementById('dayMediaModalTitle');
+            const dayMediaList = document.getElementById('dayMediaList');
+            const dayMediaModalClose = document.getElementById('dayMediaModalClose');
+            const addMoreMediaButton = document.getElementById('addMoreMediaButton');
+
+            // Herramientas Multimedia (TTS LOCAL)
+            const ttsText = document.getElementById('ttsText');
+            const ttsGenerate = document.getElementById('ttsGenerate');
+            const ttsStatus = document.getElementById('ttsStatus');
+
+            // Herramientas Multimedia (Conversión)
+            const conversionFileSelect = document.getElementById('conversionFileSelect');
+            const conversionTargetSelect = document.getElementById('conversionTargetSelect');
+            const convertMediaButton = document.getElementById('convertMediaButton');
+            const conversionStatus = document.getElementById('conversionStatus');
+
+            // Herramientas Multimedia (Exportar/Importar Calendario)
+            const exportCalendarButton = document.getElementById('exportCalendarButton');
+            const importCalendarInput = document.getElementById('importCalendarInput');
+
+            // NUEVOS ELEMENTOS DE ACCESIBILIDAD
+            const a11yAnnouncerToggle = document.getElementById('a11yAnnouncerToggle');
+            const a11yAnnouncerText = document.getElementById('a11yAnnouncerText');
+
+
+            // --- ESTADO DE LA APLICACIÓN ---
+            let currentDate = new Date();
+            // Almacena { name: "archivo.mp3", url: "blob:...", type: "audio", blob: FileBlob }
+            let loadedMedia = [];
+
+            // Almacena { "YYYY-MM-DD": [ "file1.name", "file2.name" ] }
+            let dayMediaMap = {};
+
+            let dayToAssign = null;
+
+            let db; // Referencia a la base de datos IndexedDB
+            let ttsAudioBlob = null;
+
+            // ESTADO DE BEAT MAKER
+            let beatMakerInitialized = false;
+            let recorder; // Instancia de Tone.Recorder para la descarga
+            const recordingTime = '4m'; // Grabar 4 medidas (compases)
+            let kick;
+            let snare;
+            let hihat;
+            let loop;
+            const steps = 16;
+            const instruments = [
+                { name: 'Kick', note: 'C1' },
+                { name: 'Snare', note: 'E1' },
+                { name: 'Hi-Hat', note: 'G1' }
+            ];
+            let pattern = [];
+            let currentStep = 0;
+
+            // ESTADO DE ACCESIBILIDAD
+            let isAnnouncerActive = false;
+            let lastSpokenText = ""; // Para evitar repetir la misma frase
+            let speechTimeout = null;
+            const SPEECH_DELAY = 500; // Milisegundos de retraso (debounce)
+
+
+            // --- FUNCIÓN DE SÍNTESIS DE VOZ ---
+            function speakAnnounce(text) {
+                if (!('speechSynthesis' in window)) {
+                    console.warn("Speech Synthesis no es compatible.");
+                    return;
+                }
+
+                // Cancelar cualquier discurso pendiente
+                window.speechSynthesis.cancel();
+
+                // Crear y hablar
+                const utterance = new SpeechSynthesisUtterance(text);
+                // Intentar usar una voz en español si está disponible
+                const voices = window.speechSynthesis.getVoices();
+                const spanishVoice = voices.find(voice => voice.lang.startsWith('es-'));
+                if (spanishVoice) {
+                    utterance.voice = spanishVoice;
+                } else {
+                    utterance.lang = 'es-ES'; // Fallback
+                }
+                utterance.rate = 1.1; // Ligeramente más rápido
+
+                window.speechSynthesis.speak(utterance);
+            }
+
+            // --- LÓGICA DEL MODO LECTOR ---
+            a11yAnnouncerToggle.addEventListener('click', () => {
+                isAnnouncerActive = !isAnnouncerActive;
+
+                if (isAnnouncerActive) {
+                    a11yAnnouncerText.textContent = 'Modo Lector (Activado)';
+                    a11yAnnouncerToggle.classList.remove('text-gray-300', 'hover:bg-gray-700');
+                    a11yAnnouncerToggle.classList.add('bg-purple-600', 'hover:bg-purple-700', 'text-white');
+                    // Forzar la obtención de voces si no están cargadas
+                    window.speechSynthesis.getVoices();
+                    speakAnnounce("Modo Lector activado. Mueva el ratón sobre los elementos para escuchar su descripción. En los modales de idiomas y editor de interfaz, los cambios y acciones se anunciarán automáticamente.");
+                } else {
+                    a11yAnnouncerText.textContent = 'Modo Lector (Desactivado)';
+                    a11yAnnouncerToggle.classList.add('text-gray-300', 'hover:bg-gray-700');
+                    a11yAnnouncerToggle.classList.remove('bg-purple-600', 'hover:bg-purple-700', 'text-white');
+                    window.speechSynthesis.cancel();
+                    speakAnnounce("Modo Lector desactivado.");
+                }
+            });
+
+            // Listener de mouseover global para la delegación
+            document.body.addEventListener('mouseover', (e) => {
+                if (!isAnnouncerActive) return;
+
+                let target = e.target;
+                let announceText = null;
+
+                // Subir por el árbol DOM hasta encontrar un data-announce
+                while (target && target !== document.body) {
+                    announceText = target.getAttribute('data-announce');
+                    if (announceText) break;
+
+                    // Detener la búsqueda en contenedores principales si no se encuentra
+                    if (target.id === 'calendarGrid' || target.id === 'beatGrid') {
+                        break;
+                    }
+                    target = target.parentElement;
+                }
+
+                if (announceText) {
+                    // Prevenir la repetición y usar debounce
+                    if (announceText !== lastSpokenText) {
+                        if (speechTimeout) clearTimeout(speechTimeout);
+
+                        speechTimeout = setTimeout(() => {
+                            speakAnnounce(announceText);
+                            lastSpokenText = announceText;
+                        }, SPEECH_DELAY);
+                    }
+                }
+            });
+            // Fin de la Lógica del Modo Lector
+
+
+            // --- MANEJO DE VISTAS Y SIDEBAR (RESPONSIVE) ---
+
+            function toggleSidebar() {
+                const isOpen = sidebar.classList.toggle('open');
+                if (isOpen) {
+                    sidebarOverlay.classList.remove('hidden');
+                } else {
+                    sidebarOverlay.classList.add('hidden');
+                }
+            }
+
+            function closeSidebarIfMobile() {
+                if (window.innerWidth < 768) {
+                    sidebar.classList.remove('open');
+                    sidebarOverlay.classList.add('hidden');
+                }
+            }
+
+            function switchView(viewId) {
+                calendarView.classList.add('hidden');
+                mediaToolsView.classList.add('hidden');
+                beatMakerView.classList.add('hidden');
+
+                [navCalendar, navTools, navBeats].forEach(nav => {
+                    nav.classList.remove('bg-blue-600', 'hover:bg-blue-700', 'text-white');
+                    nav.classList.add('text-gray-300', 'hover:bg-gray-700');
+                });
+
+                const navElement = document.getElementById(`nav${viewId.replace('View', '')}`);
+                if (navElement) {
+                    navElement.classList.remove('text-gray-300', 'hover:bg-gray-700');
+                    navElement.classList.add('bg-blue-600', 'hover:bg-blue-700', 'text-white');
+                }
+
+                if (viewId === 'calendarView') {
+                    calendarView.classList.remove('hidden');
+                    renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
+                } else if (viewId === 'mediaToolsView') {
+                    mediaToolsView.classList.remove('hidden');
+                    populateConversionSelect();
+                } else if (viewId === 'beatMakerView') {
+                    beatMakerView.classList.remove('hidden');
+                    if (!beatMakerInitialized) {
+                        initializeBeatMaker();
+                    }
+                }
+
+                closeSidebarIfMobile();
+            }
+
+            sidebarToggle.addEventListener('click', toggleSidebar);
+            sidebarOverlay.addEventListener('click', closeSidebarIfMobile); // Cierra al hacer clic en el overlay
+            navCalendar.addEventListener('click', () => switchView('calendarView'));
+            navTools.addEventListener('click', () => switchView('mediaToolsView'));
+            navBeats.addEventListener('click', () => switchView('beatMakerView'));
+            // Cierra el sidebar si se redimensiona a desktop
+            window.addEventListener('resize', () => {
+                if (window.innerWidth >= 768) {
+                    sidebar.classList.remove('open');
+                    sidebarOverlay.classList.add('hidden');
+                }
+            });
+
+            // --- INICIALIZACIÓN DE LA BASE DE DATOS (IndexedDB) ---
+            function initDB() {
+                const request = indexedDB.open('mediaCalendarDB', 1);
+
+                request.onerror = (event) => {
+                    console.error("Error al abrir IndexedDB:", event);
+                    showStatus("Error al cargar la base de datos local.", "error");
+                };
+
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    db.createObjectStore('files', { keyPath: 'name' });
+                };
+
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    loadDataFromStorage();
+                    // Inicia en la vista de calendario por defecto
+                    switchView('calendarView');
+                };
+            }
+
+            function loadDataFromStorage() {
+                // Revocar URLs antiguas
+                loadedMedia.forEach(m => URL.revokeObjectURL(m.url));
+                loadedMedia = [];
+
+                dayMediaMap = JSON.parse(localStorage.getItem('mediaAssignments')) || {};
+
+                if (!db) return;
+                const transaction = db.transaction(['files'], 'readonly');
+                const store = transaction.objectStore('files');
+                const getAllRequest = store.getAll();
+
+                getAllRequest.onsuccess = () => {
+                    const files = getAllRequest.result;
+
+                    files.forEach(fileData => {
+                        const url = URL.createObjectURL(fileData.blob);
+                        loadedMedia.push({
+                            name: fileData.name,
+                            type: fileData.type,
+                            blob: fileData.blob,
+                            url: url
+                        });
+                    });
+
+                    populateLoadedFilesList();
+                    populateMediaSelect();
+                    if (document.getElementById('mediaToolsView').classList.contains('hidden') === false) {
+                        populateConversionSelect();
+                    }
+                    renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
+                };
+            }
+
+            function populateMediaSelect() {
+                mediaSelect.innerHTML = '';
+                if (loadedMedia.length === 0) {
+                    mediaSelect.innerHTML = '<option value="" disabled selected>No hay archivos cargados</option>';
+                    return;
+                }
+                loadedMedia.forEach((media, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = `${media.name} (${media.type.split('/')[0]})`;
+                    mediaSelect.appendChild(option);
+                });
+                mediaSelect.selectedIndex = 0;
+            }
+
+            function populateLoadedFilesList() {
+                loadedFilesList.innerHTML = '';
+                if(loadedMedia.length === 0) {
+                    loadedFilesList.innerHTML = '<p class="text-gray-400">No hay archivos cargados. Usa el botón "Seleccionar archivos" para empezar.</p>';
+                    return;
+                }
+
+                const fileList = document.createElement('ul');
+                fileList.className = 'list-disc list-inside space-y-1';
+                loadedMedia.forEach(media => {
+                    const li = document.createElement('li');
+                    li.textContent = `${media.name} (${media.type.split('/')[0]})`;
+                    // Añadir data-announce a cada elemento de la lista
+                    li.setAttribute('data-announce', `Archivo cargado: ${media.name}, de tipo ${media.type.split('/')[0]}.`);
+                    fileList.appendChild(li);
+                });
+                loadedFilesList.appendChild(fileList);
+            }
+
+            function populateConversionSelect() {
+                conversionFileSelect.innerHTML = '';
+                if (loadedMedia.length === 0) {
+                    conversionFileSelect.innerHTML = '<option value="" disabled selected>Carga archivos primero</option>';
+                    conversionFileSelect.disabled = true;
+                    convertMediaButton.disabled = true;
+                } else {
+                    conversionFileSelect.disabled = false;
+                    convertMediaButton.disabled = false;
+                    loadedMedia.forEach((media, index) => {
+                        const option = document.createElement('option');
+                        option.value = index;
+                        option.textContent = `${media.name} (${media.type.split('/')[0]})`;
+                        option.setAttribute('data-announce', `Archivo para convertir: ${media.name}`);
+                        conversionFileSelect.appendChild(option);
+                    });
+                }
+
+                conversionTargetSelect.innerHTML = '';
+                conversionTargetFormats.forEach((format, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = `${format.type} - .${format.ext}`;
+                    option.setAttribute('data-announce', `Formato de salida: ${format.type} en extensión punto ${format.ext}`);
+                    conversionTargetSelect.appendChild(option);
+                });
+            }
+
+            // --- LÓGICA DE CONVERSIÓN (MOCK) ---
+            async function convertMedia(sourceMedia, targetFormat) {
+                // Simulación de una conversión
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                const parts = sourceMedia.name.split('.');
+                const baseName = parts.slice(0, -1).join('.');
+                const newName = `${baseName}_convertido_${Date.now()}.${targetFormat.ext}`;
+                const newBlob = new Blob([sourceMedia.blob], { type: targetFormat.mime });
+                const newMedia = {
+                    name: newName,
+                    type: targetFormat.mime,
+                    blob: newBlob,
+                    url: URL.createObjectURL(newBlob)
+                };
+                return newMedia;
+            }
+
+            convertMediaButton.addEventListener('click', async () => {
+                const fileIndex = conversionFileSelect.value;
+                const formatIndex = conversionTargetSelect.value;
+
+                if (fileIndex === "" || formatIndex === "") {
+                    showStatus('Selecciona un archivo y un formato de salida.', 'error');
+                    return;
+                }
+
+                convertMediaButton.disabled = true;
+                conversionStatus.classList.remove('hidden', 'bg-green-900/50', 'text-green-300', 'bg-red-900/50', 'text-red-300');
+                conversionStatus.classList.add('bg-yellow-900/50', 'text-yellow-300');
+                conversionStatus.innerHTML = "Convirtiendo archivo... (simulación, se añade a la lista)";
+
+                const sourceMedia = loadedMedia[fileIndex];
+                const targetFormat = conversionTargetFormats[formatIndex];
+
+                try {
+                    const newMedia = await convertMedia(sourceMedia, targetFormat);
+
+                    const transaction = db.transaction(['files'], 'readwrite');
+                    const store = transaction.objectStore('files');
+
+                    const fileData = {
+                        name: newMedia.name,
+                        type: newMedia.type,
+                        blob: newMedia.blob
+                    };
+
+                    const request = store.put(fileData);
+
+                    request.onsuccess = () => {
+                        loadDataFromStorage();
+
+                        conversionStatus.classList.remove('bg-yellow-900/50', 'text-yellow-300');
+                        conversionStatus.classList.add('bg-green-900/50', 'text-green-300');
+                        conversionStatus.innerHTML = `
+                            <p class="mb-3">¡Conversión exitosa! Archivo "${newMedia.name}" añadido.</p>
+                            <button id="downloadConvertedButton"
+                                data-announce="Botón para descargar el archivo convertido."
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors w-full">
+                                Descargar Archivo Convertido
+                            </button>
+                        `;
+
+                        document.getElementById('downloadConvertedButton').addEventListener('click', () => {
+                            downloadBlob(newMedia.blob, newMedia.name);
+                            showStatus(`Archivo ${newMedia.name} descargado.`, 'success');
+                        });
+                    };
+                    request.onerror = (e) => {
+                        throw new Error(`Error al guardar archivo convertido: ${e.target.error}`);
+                    };
+                } catch (error) {
+                    console.error("Error de conversión:", error);
+                    conversionStatus.textContent = `Error en la conversión: ${error.message || 'Error desconocido'}`;
+                    conversionStatus.classList.remove('bg-yellow-900/50', 'text-yellow-300');
+                    conversionStatus.classList.add('bg-red-900/50', 'text-red-300');
+                } finally {
+                    conversionStatus.classList.remove('hidden');
+                    convertMediaButton.disabled = false;
+                }
+            });
+
+            // --- LÓGICA DE TEXTO A VOZ (TTS LOCAL: window.speechSynthesis) ---
+
+            ttsGenerate.addEventListener('click', () => {
+                const text = ttsText.value.trim();
+                ttsAudioBlob = null;
+
+                if (!('speechSynthesis' in window)) {
+                    ttsStatus.classList.remove('hidden', 'bg-yellow-900/50', 'text-yellow-300');
+                    ttsStatus.classList.add('bg-red-900/50', 'text-red-300');
+                    ttsStatus.textContent = "El TTS local no es compatible con tu navegador.";
+                    return;
+                }
+
+                if (text === '') {
+                    showStatus('Escribe el texto que deseas reproducir en voz.', 'error');
+                    return;
+                }
+
+                window.speechSynthesis.cancel();
+                ttsGenerate.disabled = true;
+
+                ttsStatus.textContent = "Reproduciendo audio...";
+                ttsStatus.classList.remove('hidden', 'bg-green-900/50', 'text-green-300', 'bg-red-900/50', 'text-red-300');
+                ttsStatus.classList.add('bg-yellow-900/50', 'text-yellow-300');
+
+                const utterance = new SpeechSynthesisUtterance(text);
+                const voices = window.speechSynthesis.getVoices();
+                const spanishVoice = voices.find(voice => voice.lang.startsWith('es-'));
+                if (spanishVoice) {
+                    utterance.voice = spanishVoice;
+                } else {
+                    utterance.lang = 'es-ES';
+                }
+
+                utterance.onend = () => {
+                    ttsStatus.textContent = "Reproducción finalizada.";
+                    ttsStatus.classList.remove('bg-yellow-900/50', 'text-yellow-300');
+                    ttsStatus.classList.add('bg-green-900/50', 'text-green-300');
+                    ttsGenerate.disabled = false;
+                };
+
+                utterance.onerror = (event) => {
+                    ttsStatus.textContent = `Error de reproducción: ${event.error}.`;
+                    ttsStatus.classList.remove('bg-yellow-900/50', 'text-yellow-300');
+                    ttsStatus.classList.add('bg-red-900/50', 'text-red-300');
+                    ttsGenerate.disabled = false;
+                };
+
+                window.speechSynthesis.speak(utterance);
+            });
+
+            // --- LÓGICA DE EXPORTACIÓN COMPLETA ---
+
+            exportCalendarButton.addEventListener('click', async () => {
+                showStatus('Preparando datos para exportación. Esto puede tardar si tienes muchos archivos...', 'info');
+
+                // 1. Obtener los datos del calendario
+                const assignments = JSON.parse(localStorage.getItem('mediaAssignments')) || {};
+
+                // 2. Preparar los datos de los archivos para codificación (IndexedDB -> Base64)
+                const filesData = [];
+
+                try {
+                    for (const media of loadedMedia) {
+                        const base64Content = await blobToBase64(media.blob);
+                        filesData.push({
+                            name: media.name,
+                            type: media.type,
+                            base64: base64Content // Guardamos el Data URL completo
+                        });
+                    }
+
+                    // 3. Crear el objeto de exportación
+                    const exportData = {
+                        version: '1.0',
+                        timestamp: new Date().toISOString(),
+                        assignments: assignments,
+                        mediaFiles: filesData
+                    };
+
+                    // 4. Convertir los datos a una cadena JSON formateada
+                    const jsonString = JSON.stringify(exportData, null, 2);
+
+                    // 5. Crear un Blob y descargar
+                    const blob = new Blob([jsonString], { type: 'application/json' });
+                    const filename = `media_calendar_backup_${new Date().toISOString().slice(0, 10)}.json`;
+                    downloadBlob(blob, filename);
+
+                    showStatus('¡Exportación de backup completa (Asignaciones y Archivos)!', 'success');
+
+                } catch (error) {
+                    console.error("Error al exportar datos:", error);
+                    showStatus('Error grave al codificar archivos para exportar.', 'error');
+                }
+            });
+
+            // --- LÓGICA DE IMPORTACIÓN COMPLETA (Actualizada) ---
+
+            importCalendarInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                showStatus('Leyendo archivo de importación...', 'info');
+
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    try {
+                        const importedData = JSON.parse(event.target.result);
+
+                        // 1. Validación de estructura de backup completo
+                        if (!importedData.assignments || !importedData.mediaFiles) {
+                            throw new Error("Estructura de backup JSON inválida. Faltan las claves 'assignments' o 'mediaFiles'.");
+                        }
+
+                        const assignments = importedData.assignments;
+                        const mediaFiles = importedData.mediaFiles;
+                        let filesAddedCount = 0;
+
+                        // 2. Procesar y guardar archivos multimedia en IndexedDB
+                        const transaction = db.transaction(['files'], 'readwrite');
+                        const store = transaction.objectStore('files');
+
+                        const importPromises = mediaFiles.map(fileData => {
+                            if (!fileData.name || !fileData.type || !fileData.base64) {
+                                console.warn("Archivo en backup con datos incompletos, omitiendo:", fileData.name);
+                                return Promise.resolve(); // Omitir archivos malos
+                            }
+
+                            // Reconstruir el Blob
+                            const blob = base64ToBlob(fileData.base64, fileData.type);
+
+                            const newFileData = {
+                                name: fileData.name,
+                                type: fileData.type,
+                                blob: blob
+                            };
+
+                            return new Promise((resolve, reject) => {
+                                const request = store.put(newFileData);
+                                request.onsuccess = () => {
+                                    filesAddedCount++;
+                                    resolve();
+                                };
+                                request.onerror = (e) => {
+                                    console.error(`Error al guardar archivo ${fileData.name}:`, e.target.error);
+                                    reject(e);
+                                };
+                            });
+                        });
+
+                        // Esperar a que se completen todas las operaciones de IndexedDB
+                        await Promise.all(importPromises);
+
+                        // 3. Guardar asignaciones en localStorage
+                        localStorage.setItem('mediaAssignments', JSON.stringify(assignments));
+                        dayMediaMap = assignments;
+
+                        // 4. Recargar el estado de la aplicación
+                        loadDataFromStorage();
+
+                        showStatus(`¡Importación de backup completa! Se cargaron ${filesAddedCount} archivos y las asignaciones.`, 'success');
+
+                    } catch (error) {
+                        console.error("Error al importar el archivo:", error);
+                        showStatus(`Error al procesar el archivo de backup: ${error.message}`, 'error');
+                    } finally {
+                        e.target.value = '';
+                    }
+                };
+
+                reader.onerror = () => {
+                    showStatus('Error al leer el archivo.', 'error');
+                };
+
+                reader.readAsText(file);
+            });
+
+            // --- FUNCIONALIDAD DE BEAT MAKER (TONE.JS) ---
+
+            function initializeBeatMaker() {
+                if (beatMakerInitialized) return;
+
+                // 1. Inicializar Grabador PRIMERO
+                // El Tone.Recorder captura el audio que pasa a través de sus conexiones.
+                recorder = new Tone.Recorder();
+
+                // 2. Inicializar Sintetizadores y CONECTARLOS al grabador y destino
+                // Los synths se conectan al grabador y al destino principal (altavoces) para que se escuchen mientras graban.
+                kick = new Tone.MembraneSynth({
+                    envelope: { attack: 0.005, decay: 0.8, sustain: 0, release: 0.05 },
+                    pitchDecay: 0.05
+                }).connect(recorder).toDestination();
+
+                snare = new Tone.NoiseSynth({
+                    noise: { type: 'white' },
+                    envelope: { attack: 0.005, decay: 0.2, sustain: 0, release: 0.05 }
+                }).connect(recorder).toDestination();
+
+                hihat = new Tone.NoiseSynth({
+                    noise: { type: 'pink' },
+                    envelope: { attack: 0.005, decay: 0.05, sustain: 0, release: 0.01 }
+                }).connect(recorder).toDestination();
+
+                // 3. Inicializar Patrón
+                instruments.forEach(() => {
+                    pattern.push(Array(steps).fill(0)); // 0 = off, 1 = on
+                });
+
+                // 4. Renderizar la Cuadrícula
+                renderBeatGrid();
+
+                // 5. Configurar BPM
+                Tone.Transport.bpm.value = parseInt(bpmSlider.value);
+                bpmSlider.addEventListener('input', (e) => {
+                    const bpm = parseInt(e.target.value);
+                    Tone.Transport.bpm.value = bpm;
+                    bpmDisplay.textContent = bpm;
+                });
+
+                // 6. Configurar el Loop (Secuenciador)
+                loop = new Tone.Sequence((time, step) => {
+                    currentStep = step;
+
+                    // Quitar el resaltado de la columna anterior
+                    document.querySelectorAll('.beat-cell').forEach(cell => cell.classList.remove('bg-blue-900/50', 'ring-2', 'ring-blue-500'));
+
+                    // Resaltar la columna actual (por cada instrumento)
+                    document.querySelectorAll(`.beat-step-${step}`).forEach(cell => {
+                        cell.classList.add('bg-blue-900/50', 'ring-2', 'ring-blue-500');
+                    });
+
+                    // Tocar instrumentos
+                    pattern.forEach((row, instrumentIndex) => {
+                        if (row[step]) {
+                            const synth = [kick, snare, hihat][instrumentIndex];
+                            if (instrumentIndex === 0) { // Kick
+                                synth.triggerAttackRelease('C1', '8n', time);
+                            } else if (instrumentIndex === 1) { // Snare
+                                synth.triggerAttackRelease('8n', time);
+                            } else if (instrumentIndex === 2) { // Hi-Hat
+                                synth.triggerAttackRelease('16n', time, 0.5);
+                            }
+                        }
+                    });
+                }, Array.from({length: steps}, (_, i) => i), '16n').start(0); // Empezar el loop desde el inicio
+
+                // 7. Botones de Control
+                startStopBeats.addEventListener('click', async () => {
+                    if (Tone.Transport.state !== 'started') {
+                        // Iniciar el contexto de audio si es la primera vez
+                        await Tone.start();
+
+                        Tone.Transport.start();
+
+                        // Actualizar UI
+                        startStopBeats.innerHTML = `<svg id="stopIcon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-square"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/></svg> <span>Detener Ritmo</span>`;
+                        startStopBeats.classList.remove('bg-green-600', 'hover:bg-green-700');
+                        startStopBeats.classList.add('bg-red-600', 'hover:bg-red-700');
+                        beatStatus.classList.add('hidden');
+                        Tone.Transport.swing = 0.5; // Añadir un poco de "swing" para mejor ritmo
+
+                    } else {
+                        Tone.Transport.stop();
+
+                        // Remover resaltado
+                        document.querySelectorAll('.beat-cell').forEach(cell => cell.classList.remove('bg-blue-900/50', 'ring-2', 'ring-blue-500'));
+
+                        // Actualizar UI
+                        startStopBeats.innerHTML = `<svg id="playIcon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-play"><polygon points="5 3 19 12 5 21 5 3"/></svg> <span>Iniciar Ritmo</span>`;
+                        startStopBeats.classList.remove('bg-red-600', 'hover:bg-red-700');
+                        startStopBeats.classList.add('bg-green-600', 'hover:bg-green-700');
+                        beatStatus.classList.remove('hidden');
+                        beatStatus.textContent = 'Ritmo detenido.';
+                    }
+                });
+
+                clearBeats.addEventListener('click', () => {
+                    if (Tone.Transport.state === 'started') {
+                        // Simular clic para detener y limpiar resaltado
+                        startStopBeats.click();
+                    }
+
+                    // Limpiar patrón
+                    pattern = pattern.map(row => Array(steps).fill(0));
+
+                    // Limpiar UI
+                    document.querySelectorAll('.beat-cell').forEach(cell => {
+                        cell.classList.remove('bg-blue-600', 'hover:bg-blue-500');
+                        cell.classList.add('bg-gray-700', 'hover:bg-gray-600');
+                    });
+
+                    // Vuelve a renderizar para actualizar data-announce
+                    renderBeatGrid();
+
+                    showStatus('Patrón rítmico limpiado.', 'info');
+                });
+
+                // Lógica para descargar el beat (GRABACIÓN)
+                downloadBeats.addEventListener('click', async () => {
+                    // Asegurar que Tone está iniciado
+                    await Tone.start();
+
+                    if (Tone.Transport.state === 'started') {
+                        showStatus('Detén el ritmo antes de grabar.', 'error');
+                        return;
+                    }
+
+                    // Comprobar si hay algún paso activado
+                    if (pattern.every(row => row.every(step => step === 0))) {
+
+                        showStatus('El patrón está vacío. Añade algunos pasos.', 'error');
+                        return;
+                    }
+
+                    // Deshabilitar botones mientras se graba
+                    downloadBeats.disabled = true;
+                    startStopBeats.disabled = true;
+                    clearBeats.disabled = true;
+
+                    // Mostrar estado de grabación
+                    beatStatus.classList.remove('hidden', 'bg-green-900/50', 'text-green-300', 'bg-red-900/50', 'text-red-300');
+                    beatStatus.classList.add('bg-blue-900/50', 'text-blue-300');
+                    const durationInSeconds = Tone.Transport.toSeconds(recordingTime).toFixed(1);
+                    beatStatus.innerHTML = `Grabando 4 compases... Espera ${durationInSeconds} segundos.`;
+
+                    try {
+                        // Iniciar grabador
+                        recorder.start();
+
+                        // Iniciar transporte
+                        Tone.Transport.start();
+
+                        // Programar la parada del transporte y del grabador después del tiempo de grabación
+                        Tone.Transport.scheduleOnce(async (time) => {
+                            Tone.Transport.stop();
+                            // Obtener el Blob de audio (asíncrono)
+                            const recordingBlob = await recorder.stop();
+
+                            const filename = `beat_pattern_${new Date().toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-')}.wav`;
+                            downloadBlob(recordingBlob, filename);
+
+                            showStatus(`¡Ritmo grabado y descargado como ${filename}!`, 'success');
+
+                            // Restaurar estado de botones y UI
+                            downloadBeats.disabled = false;
+                            startStopBeats.disabled = false;
+                            clearBeats.disabled = false;
+                            beatStatus.classList.add('hidden');
+                        }, recordingTime);
+
+                    } catch (error) {
+                        console.error("Error al grabar el beat:", error);
+                        showStatus('Error durante la grabación o descarga del beat.', 'error');
+                        // Asegurar la restauración en caso de error
+                        downloadBeats.disabled = false;
+                        startStopBeats.disabled = false;
+                        clearBeats.disabled = false;
+                        beatStatus.classList.add('hidden');
+                    }
+                });
+
+                beatMakerInitialized = true;
+                beatStatus.classList.remove('hidden');
+            }
+
+            function renderBeatGrid() {
+                beatGrid.innerHTML = '';
+
+                instruments.forEach((instrument, rowIndex) => {
+                    const rowContainer = document.createElement('div');
+                    // Añadido flex-wrap para asegurar que el contenido no desborde si el label es muy largo
+                    rowContainer.className = 'flex items-center space-x-1 flex-wrap sm:flex-nowrap';
+
+                    const label = document.createElement('span');
+                    // Ajustado el ancho en móvil
+                    label.className = 'w-full sm:w-24 text-sm font-semibold text-gray-400 flex-shrink-0 mb-1 sm:mb-0';
+                    label.textContent = instrument.name;
+                    // Añadir data-announce al nombre del instrumento
+                    label.setAttribute('data-announce', `Instrumento: ${instrument.name}.`);
+                    rowContainer.appendChild(label);
+
+                    const gridRow = document.createElement('div');
+                    // Usamos overflow-x-auto en el contenedor principal, esta fila debe ser flexible
+                    // Añadido min-w-full para forzar que la cuadrícula se extienda y no se comprima
+                    gridRow.className = 'flex flex-grow justify-between border-l border-r border-gray-700 min-w-full sm:min-w-0';
+
+                    for (let step = 0; step < steps; step++) {
+                        const cell = document.createElement('div');
+                        const isBarStart = step % 4 === 0;
+
+                        cell.className = `beat-cell beat-step-${step} flex-shrink-0 w-[4.8%] sm:w-[5%] h-8 md:h-10 rounded-md transition-colors cursor-pointer flex items-center justify-center m-[0.5px] sm:m-[1px]
+                                        ${isBarStart ? 'border-l-2 border-l-blue-400' : ''}
+                                        ${pattern[rowIndex][step] ? 'bg-blue-600 hover:bg-blue-500' : 'bg-gray-700 hover:bg-gray-600'}`;
+                        cell.dataset.row = rowIndex;
+                        cell.dataset.step = step;
+
+                        // AÑADIR data-announce para cada celda
+                        cell.setAttribute('data-announce', `${instrument.name}, paso número ${step + 1}. Actualmente ${pattern[rowIndex][step] ? 'activado' : 'desactivado'}. Pulsa para alternar.`);
+
+                        cell.addEventListener('click', () => {
+                            const r = parseInt(cell.dataset.row);
+                            const s = parseInt(cell.dataset.step);
+
+                            // Alternar estado en el patrón de datos
+                            pattern[r][s] = 1 - pattern[r][s];
+
+                            // Alternar estado visual
+                            if (pattern[r][s] === 1) {
+                                cell.classList.remove('bg-gray-700', 'hover:bg-gray-600');
+                                cell.classList.add('bg-blue-600', 'hover:bg-blue-500');
+                            } else {
+                                cell.classList.remove('bg-blue-600', 'hover:bg-blue-500');
+                                cell.classList.add('bg-gray-700', 'hover:bg-gray-600');
+                            }
+                            // Actualizar el data-announce después del clic
+                            cell.setAttribute('data-announce', `${instrument.name}, paso número ${s + 1}. Actualmente ${pattern[r][s] ? 'activado' : 'desactivado'}. Pulsa para alternar.`);
+                        });
+
+                        gridRow.appendChild(cell);
+                    }
+
+                    rowContainer.appendChild(gridRow);
+                    beatGrid.appendChild(rowContainer);
+                });
+            }
+
+            // --- OTRAS FUNCIONES ---
+
+            // Función para mostrar mensajes de estado
+            function showStatus(message, type = 'info') {
+                statusMessage.textContent = message;
+                statusMessage.classList.remove('hidden', 'text-yellow-400', 'bg-yellow-900/50', 'text-green-400', 'bg-green-900/50', 'text-red-400', 'bg-red-900/50');
+
+                if (type === 'success') {
+                    statusMessage.classList.add('text-green-400', 'bg-green-900/50');
+                } else if (type === 'error') {
+                    statusMessage.classList.add('text-red-400', 'bg-red-900/50');
+                } else {
+                    statusMessage.classList.add('text-yellow-400', 'bg-yellow-900/50');
+                }
+
+                statusMessage.classList.remove('hidden');
+                statusMessage.setAttribute('data-announce', `Mensaje de estado: ${message}`);
+
+                setTimeout(() => {
+                    statusMessage.classList.add('hidden');
+                    statusMessage.removeAttribute('data-announce');
+                }, 4000);
+            }
+
+            // Eventos del calendario (casi sin cambios)
+            fileInput.addEventListener('change', (e) => {
+                const files = e.target.files;
+                if (files.length === 0) return;
+
+                const transaction = db.transaction(['files'], 'readwrite');
+                const store = transaction.objectStore('files');
+                let filesAddedCount = 0;
+
+                Array.from(files).forEach((file) => {
+                    let mediaType = null;
+                    if (file.type.startsWith('audio/')) mediaType = 'audio';
+                    else if (file.type.startsWith('video/')) mediaType = 'video';
+                    else if (file.type.startsWith('image/')) mediaType = 'image';
+                    else return;
+
+                    const fileData = {
+                        name: file.name,
+                        type: file.type,
+                        blob: file
+                    };
+
+                    const request = store.put(fileData);
+
+                    request.onsuccess = () => {
+                        filesAddedCount++;
+                        loadDataFromStorage();
+                    };
+                    request.onerror = (e) => {
+                        console.warn(`No se pudo guardar ${file.name}:`, e.target.error);
+                    };
+                });
+
+                transaction.oncomplete = () => {
+                    showStatus(`Se guardaron ${filesAddedCount} archivos en la BD local.`, 'success');
+                };
+            });
+
+            function renderCalendar(year, month) {
+                const daysHeader = `
+                    <div class="text-center font-semibold text-gray-400 text-sm md:text-base" data-announce="Día de la semana: Domingo.">DO</div>
+                    <div class="text-center font-semibold text-gray-400 text-sm md:text-base" data-announce="Día de la semana: Lunes.">LU</div>
+                    <div class="text-center font-semibold text-gray-400 text-sm md:text-base" data-announce="Día de la semana: Martes.">MA</div>
+                    <div class="text-center font-semibold text-gray-400 text-sm md:text-base" data-announce="Día de la semana: Miércoles.">MI</div>
+                    <div class="text-center font-semibold text-gray-400 text-sm md:text-base" data-announce="Día de la semana: Jueves.">JU</div>
+                    <div class="text-center font-semibold text-gray-400 text-sm md:text-base" data-announce="Día de la semana: Viernes.">VI</div>
+                    <div class="text-center font-semibold text-gray-400 text-sm md:text-base" data-announce="Día de la semana: Sábado.">SÁ</div>
+                `;
+
+                calendarGrid.innerHTML = daysHeader;
+
+                monthYear.textContent = `${new Date(year, month).toLocaleString('es-ES', { month: 'long', year: 'numeric' })}`;
+                const firstDayOfMonth = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const today = new Date();
+
+                for (let i = 0; i < firstDayOfMonth; i++) {
+                    const blankCell = document.createElement('div');
+                    // Añadir data-announce a las celdas vacías
+                    blankCell.setAttribute('data-announce', 'Espacio vacío de calendario.');
+                    blankCell.className = 'border border-gray-700 rounded-lg opacity-50 h-16 md:h-20'; // Asegura la altura en celda vacía
+                    calendarGrid.appendChild(blankCell);
+                }
+
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayCell = document.createElement('div');
+                    const fullDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+                    dayCell.textContent = day;
+                    dayCell.dataset.date = fullDate;
+                    // Ajuste de altura y tamaño de texto para responsive
+                    dayCell.className = `h-16 md:h-20 text-sm md:text-base flex items-center justify-center font-semibold border border-gray-700 rounded-lg cursor-pointer transition-colors hover:bg-gray-600 relative`;
+
+                    dayCell.classList.remove('has-media', 'today');
+
+                    let announceText = `Día ${day}, ${monthYear.textContent}.`;
+
+                    if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                        dayCell.classList.add('today');
+                        announceText += ` Es hoy.`;
+                    }
+
+                    if (dayMediaMap[fullDate] && dayMediaMap[fullDate].length > 0) {
+                        dayCell.classList.add('has-media');
+                        announceText += ` Contiene ${dayMediaMap[fullDate].length} archivo multimedia asignado. Pulsa para ver y reproducir.`;
+                    } else {
+                        announceText += ` No tiene multimedia. Pulsa para asignar.`;
+                    }
+
+                    // AÑADIR data-announce al día
+                    dayCell.setAttribute('data-announce', announceText);
+
+                    dayCell.addEventListener('click', () => handleDayClick(fullDate));
+                    calendarGrid.appendChild(dayCell);
+                }
+            }
+
+            function handleDayClick(fullDate) {
+                dayMediaMap = JSON.parse(localStorage.getItem('mediaAssignments')) || {};
+                const fileNames = dayMediaMap[fullDate];
+
+                mediaAudioPlayer.classList.add('hidden');
+                mediaVideoPlayer.classList.add('hidden');
+                mediaAudioPlayer.pause();
+                mediaVideoPlayer.pause();
+
+                if (fileNames && fileNames.length > 0) {
+                    const mediaList = loadedMedia.filter(m => fileNames.includes(m.name));
+
+                    const foundMediaList = mediaList.filter(m => m);
+                    if (foundMediaList.length !== fileNames.length) {
+                        const foundNames = foundMediaList.map(m => m.name);
+                        dayMediaMap[fullDate] = foundNames;
+                        localStorage.setItem('mediaAssignments', JSON.stringify(dayMediaMap));
+                        if(foundNames.length === 0) {
+                             handleDayClick(fullDate);
+                              return;
+                        }
+                    }
+
+                    openDayMediaModal(fullDate, foundMediaList);
+                } else {
+                    if (loadedMedia.length === 0) {
+                        showStatus('No hay archivos multimedia cargados. Carga archivos primero.', 'error');
+                        return;
+                    }
+                    openAssignmentModal(fullDate);
+                }
+            }
+
+            function playOrShowMedia(media) {
+                mediaAudioPlayer.classList.add('hidden');
+                mediaVideoPlayer.classList.add('hidden');
+                mediaAudioPlayer.pause();
+                mediaVideoPlayer.pause();
+
+                if (!media || !media.url) {
+                    showStatus("Error: No se pudo encontrar el archivo.", "error");
+                    return;
+                }
+
+                if (media.type.startsWith('audio/')) {
+                    mediaAudioPlayer.src = media.url;
+                    mediaAudioPlayer.classList.remove('hidden');
+                    mediaAudioPlayer.play().catch(e => showStatus('Error al reproducir audio.', 'error'));
+                    showStatus(`Reproduciendo: ${media.name}`, 'success');
+                } else if (media.type.startsWith('video/')) {
+                    mediaVideoPlayer.src = media.url;
+                    mediaVideoPlayer.classList.remove('hidden');
+                    mediaVideoPlayer.play().catch(e => showStatus('Error al reproducir video.', 'error'));
+                    showStatus(`Reproduciendo: ${media.name}`, 'success');
+                } else if (media.type.startsWith('image/')) {
+                    imageModalImg.src = media.url;
+                    imageModal.classList.remove('hidden');
+                    showStatus(`Mostrando imagen: ${media.name}`, 'success');
+                }
+            }
+
+            prevMonth.addEventListener('click', () => {
+                currentDate.setMonth(currentDate.getMonth() - 1);
+                renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
+            });
+
+            nextMonth.addEventListener('click', () => {
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
+            });
+
+            function openAssignmentModal(fullDate) {
+                dayToAssign = fullDate;
+
+                modalTitle.textContent = `Asignar Multimedia al ${fullDate}`;
+                modal.classList.remove('hidden');
+            }
+
+            function closeAssignmentModal() {
+                dayToAssign = null;
+                modal.classList.add('hidden');
+            }
+
+            cancelButton.addEventListener('click', closeAssignmentModal);
+
+            saveButton.addEventListener('click', () => {
+                if (!dayToAssign || mediaSelect.value === '') {
+                    showStatus('No se seleccionó ningún archivo.', 'error');
+                    return;
+                }
+
+                const selectedIndex = mediaSelect.value;
+                const selectedMedia = loadedMedia[selectedIndex];
+
+                if (!selectedMedia) {
+                    showStatus('Error al seleccionar el archivo.', 'error');
+                    return;
+                }
+
+                if (!dayMediaMap[dayToAssign]) {
+                    dayMediaMap[dayToAssign] = [];
+                }
+
+                if (!dayMediaMap[dayToAssign].includes(selectedMedia.name)) {
+                    dayMediaMap[dayToAssign].push(selectedMedia.name);
+
+                    localStorage.setItem('mediaAssignments', JSON.stringify(dayMediaMap));
+                    showStatus(`Multimedia añadido a ${dayToAssign}.`, 'success');
+                } else {
+                    showStatus(`Este archivo ya está asignado a ${dayToAssign}.`, 'info');
+                }
+
+                renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
+
+                closeAssignmentModal();
+            });
+
+            imageModalClose.addEventListener('click', () => {
+                imageModal.classList.add('hidden');
+                imageModalImg.src = '';
+            });
+
+            function openDayMediaModal(fullDate, mediaList) {
+                dayToAssign = fullDate;
+                dayMediaModalTitle.textContent = `Multimedia para ${fullDate}`;
+                dayMediaList.innerHTML = '';
+
+                if (mediaList.length === 0) {
+                    dayMediaList.innerHTML = '<p class="text-gray-400">No hay archivos asignados.</p>';
+                }
+
+                mediaList.forEach(media => {
+                    const itemContainer = document.createElement('div');
+                    itemContainer.className = "flex justify-between items-center bg-gray-700 rounded-lg";
+
+                    const itemButton = document.createElement('button');
+                    itemButton.textContent = `${media.name} (${media.type.split('/')[0]})`;
+                    itemButton.className = "flex-grow text-left p-3 hover:bg-gray-600 rounded-l-lg transition-colors truncate"; // Añadido truncate
+                    // Añadir data-announce a cada botón de archivo
+                    itemButton.setAttribute('data-announce', `Reproducir o ver archivo: ${media.name}, de tipo ${media.type.split('/')[0]}.`);
+
+                    itemButton.addEventListener('click', () => {
+                        playOrShowMedia(media);
+                        closeDayMediaModal();
+                    });
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Quitar';
+                    deleteButton.className = "text-red-400 hover:text-red-300 p-3 text-sm font-semibold rounded-r-lg hover:bg-red-900/50 flex-shrink-0";
+                    // Añadir data-announce al botón de quitar
+                    deleteButton.setAttribute('data-announce', `Botón Quitar archivo ${media.name} de la asignación del día.`);
+                    deleteButton.onclick = () => {
+                        const fileNames = dayMediaMap[fullDate];
+                        const newFileNames = fileNames.filter(name => name !== media.name);
+                        dayMediaMap[fullDate] = newFileNames;
+                        localStorage.setItem('mediaAssignments', JSON.stringify(dayMediaMap));
+
+                        const newMediaList = mediaList.filter(m => m.name !== media.name);
+                        openDayMediaModal(fullDate, newMediaList);
+
+                        if (newFileNames.length === 0) {
+                            renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
+                        }
+                    };
+
+                    itemContainer.appendChild(itemButton);
+                    itemContainer.appendChild(deleteButton);
+                    dayMediaList.appendChild(itemContainer);
+                });
+
+                dayMediaModal.classList.remove('hidden');
+
+                addMoreMediaButton.onclick = () => {
+                    closeDayMediaModal();
+                    openAssignmentModal(fullDate);
+                };
+            }
+
+            function closeDayMediaModal() {
+                dayMediaModal.classList.add('hidden');
+            }
+
+            dayMediaModalClose.addEventListener('click', closeDayMediaModal);
+
+            // =====================================================
+            // SISTEMA MULTILENGUAJE
+            // =====================================================
+            
+            const translations = {
+                es: {
+                    title: "Reproductor Multimedia y Herramientas",
+                    calendarView: "Calendario de Asignación",
+                    calendarDescription: "Carga archivos, asígnalos a días y reprodúcelos.",
+                    loadFiles: "Carga tus Archivos Multimedia",
+                    fileLoadDescription: "Selecciona los archivos (audio, video o fotos) de tu dispositivo. Se guardan localmente en tu navegador.",
+                    calendarInteractive: "Calendario Interactivo",
+                    calendarInteractiveDescription: "Haz clic en un día para reproducir o ver su contenido. Si no tiene, podrás asignárselo.",
+                    mediaTools: "Herramientas de Creación y Utilidad",
+                    mediaToolsDescription: "Crea audio a partir de texto, convierte formatos y exporta datos.",
+                    createAudio: "Crear Audio (Texto a Voz Local)",
+                    createAudioDescription: "Escribe el texto. Puedes reproducirlo en tu navegador.",
+                    textPlaceholder: "Escribe el texto que quieres que tu navegador reproduzca...",
+                    playVoice: "Reproducir Voz (TTS)",
+                    mediaConverter: "Conversor Multimedia (Simulación)",
+                    converterDescription: "Simulación de conversión. Selecciona un archivo cargado y un formato de salida.",
+                    selectFileConvert: "Archivo a convertir:",
+                    selectFormat: "Formato de salida:",
+                    convertFile: "Convertir Archivo",
+                    exportData: "Exportar Todos los Datos",
+                    exportDescription: "Descarga un archivo JSON con todas las asignaciones del calendario Y los archivos multimedia (codificados en Base64).",
+                    downloadBackup: "Descargar Archivo JSON de Backup",
+                    importData: "Importar Asignaciones",
+                    importDescription: "Selecciona un archivo JSON de backup para restaurar tus asignaciones.",
+                    selectBackup: "Seleccionar Archivo JSON",
+                    restoreBackup: "Restaurar desde Backup",
+                    beatMaker: "Máquina de Ritmos (Beats)",
+                    beatMakerDescription: "Crea ritmos únicos usando diferentes instrumentos.",
+                    bpm: "BPM",
+                    volume: "Volumen",
+                    play: "Reproducir",
+                    stop: "Detener",
+                    clear: "Limpiar",
+                    languageSelector: "Español",
+                    uiEditor: "Editor UI",
+                    imageEdit: "Imágenes",
+                    videoEdit: "Videos",
+                    accessibilityMode: "Modo Lector",
+                    accessibilityModeOff: "Modo Lector (Desactivado)",
+                    accessibilityModeOn: "Modo Lector (Activado)",
+                    reset: "Resetear",
+                    save: "Guardar",
+
+                    uiEditorTitle: "Editor Avanzado de Interfaz",
+                    themeColors: "Colores del Tema",
+                    typography: "Tipografía",
+                    spacingBorders: "Espaciado y Bordes",
+                    presetThemes: "Temas Predefinidos",
+                    fontFamily: "Familia de Fuente",
+                    baseFontSize: "Tamaño Base",
+                    borderRadius: "Border Radius",
+                    padding: "Padding",
+                    resetUI: "Resetear",
+                    exportUI: "Exportar",
+                    importUI: "Importar",
+                    livePreview: "Vista Previa en Vivo",
+                    primaryColor: "Color Primario",
+                    secondaryColor: "Color Secundario",
+                    bgColor: "Color de Fondo",
+                    textColor: "Color de Texto",
+                    defaultTheme: "Por Defecto",
+                    oceanTheme: "Océano",
+                    sunsetTheme: "Atardecer",
+                    forestTheme: "Bosque",
+                    neonTheme: "Neón",
+                    pastelTheme: "Pastel"
+                },
+                en: {
+                    title: "Multimedia Player and Tools",
+                    calendarView: "Assignment Calendar",
+                    calendarDescription: "Load files, assign them to days and play them.",
+                    loadFiles: "Load Your Multimedia Files",
+                    fileLoadDescription: "Select files (audio, video or photos) from your device. They are saved locally in your browser.",
+                    calendarInteractive: "Interactive Calendar",
+                    calendarInteractiveDescription: "Click on a day to play or view its content. If it doesn't have any, you can assign it.",
+                    mediaTools: "Creation and Utility Tools",
+                    mediaToolsDescription: "Create audio from text, convert formats and export data.",
+                    createAudio: "Create Audio (Local Text-to-Speech)",
+                    createAudioDescription: "Write the text. You can play it in your browser.",
+                    textPlaceholder: "Write the text you want your browser to speak...",
+                    playVoice: "Play Voice (TTS)",
+                    mediaConverter: "Multimedia Converter (Simulation)",
+                    converterDescription: "Conversion simulation. Select a loaded file and an output format.",
+                    selectFileConvert: "File to convert:",
+                    selectFormat: "Output format:",
+                    convertFile: "Convert File",
+                    exportData: "Export All Data",
+                    exportDescription: "Download a JSON file with all calendar assignments AND multimedia files (encoded in Base64).",
+                    downloadBackup: "Download JSON Backup File",
+                    importData: "Import Assignments",
+                    importDescription: "Select a JSON backup file to restore your assignments.",
+                    selectBackup: "Select JSON File",
+                    restoreBackup: "Restore from Backup",
+                    beatMaker: "Beat Machine (Beats)",
+                    beatMakerDescription: "Create unique rhythms using different instruments.",
+                    bpm: "BPM",
+                    volume: "Volume",
+                    play: "Play",
+                    stop: "Stop",
+                    clear: "Clear",
+                    languageSelector: "English",
+                    uiEditor: "UI Editor",
+                    imageEdit: "Images",
+                    videoEdit: "Videos",
+                    accessibilityMode: "Reader Mode",
+                    accessibilityModeOff: "Reader Mode (Disabled)",
+                    accessibilityModeOn: "Reader Mode (Enabled)",
+                    reset: "Reset",
+                    save: "Save",
+
+                    uiEditorTitle: "Advanced UI Editor",
+                    themeColors: "Theme Colors",
+                    typography: "Typography",
+                    spacingBorders: "Spacing and Borders",
+                    presetThemes: "Preset Themes",
+                    fontFamily: "Font Family",
+                    baseFontSize: "Base Font Size",
+                    borderRadius: "Border Radius",
+                    padding: "Padding",
+                    resetUI: "Reset",
+                    exportUI: "Export",
+                    importUI: "Import",
+                    livePreview: "Live Preview",
+                    primaryColor: "Primary Color",
+                    secondaryColor: "Secondary Color",
+                    bgColor: "Background Color",
+                    textColor: "Text Color",
+                    defaultTheme: "Default",
+                    oceanTheme: "Ocean",
+                    sunsetTheme: "Sunset",
+                    forestTheme: "Forest",
+                    neonTheme: "Neon",
+                    pastelTheme: "Pastel"
+                },
+                fr: {
+                    title: "Lecteur Multimédia et Outils",
+                    calendarView: "Calendrier d'Affectation",
+                    calendarDescription: "Chargez des fichiers, assignez-les à des jours et lisez-les.",
+                    loadFiles: "Chargez vos Fichiers Multimédia",
+                    fileLoadDescription: "Sélectionnez les fichiers (audio, vidéo ou photos) depuis votre appareil. Ils sont enregistrés localement dans votre navigateur.",
+                    calendarInteractive: "Calendrier Interactif",
+                    calendarInteractiveDescription: "Cliquez sur un jour pour lire ou voir son contenu. S'il n'en a pas, vous pouvez lui en assigner un.",
+                    mediaTools: "Outils de Création et Utilité",
+                    mediaToolsDescription: "Créer de l'audio à partir de texte, convertir les formats et exporter des données.",
+                    createAudio: "Créer de l'Audio (Texte vers Voix Local)",
+                    createAudioDescription: "Écrivez le texte. Vous pouvez le lire dans votre navigateur.",
+                    textPlaceholder: "Écrivez le texte que vous voulez que votre navigateur parle...",
+                    playVoice: "Lire la Voix (TTS)",
+                    mediaConverter: "Convertisseur Multimédia (Simulation)",
+                    converterDescription: "Simulation de conversion. Sélectionnez un fichier chargé et un format de sortie.",
+                    selectFileConvert: "Fichier à convertir :",
+                    selectFormat: "Format de sortie :",
+                    convertFile: "Convertir le Fichier",
+                    exportData: "Exporter Toutes les Données",
+                    exportDescription: "Téléchargez un fichier JSON avec toutes les affectations du calendrier ET les fichiers multimédias (encodés en Base64).",
+                    downloadBackup: "Télécharger le Fichier de Sauvegarde JSON",
+                    importData: "Importer les Affectations",
+                    importDescription: "Sélectionnez un fichier de sauvegarde JSON pour restaurer vos affectations.",
+                    selectBackup: "Sélectionner le Fichier JSON",
+                    restoreBackup: "Restaurer depuis la Sauvegarde",
+                    beatMaker: "Machine à Rythmes (Beats)",
+                    beatMakerDescription: "Créez des rythmes uniques en utilisant différents instruments.",
+                    bpm: "BPM",
+                    volume: "Volume",
+                    play: "Lire",
+                    stop: "Arrêter",
+                    clear: "Effacer",
+                    languageSelector: "Français",
+                    uiEditor: "Éditeur UI",
+                    imageEdit: "Images",
+                    videoEdit: "Vidéos",
+                    accessibilityMode: "Mode Lecteur",
+                    accessibilityModeOff: "Mode Lecteur (Désactivé)",
+                    accessibilityModeOn: "Mode Lecteur (Activé)",
+                    reset: "Réinitialiser",
+                    save: "Sauvegarder",
+
+                    uiEditorTitle: "Éditeur UI Avancé",
+                    themeColors: "Couleurs du Thème",
+                    typography: "Typographie",
+                    spacingBorders: "Espacement et Bordures",
+                    presetThemes: "Thèmes Prédéfinis",
+                    fontFamily: "Famille de Police",
+                    baseFontSize: "Taille de Police de Base",
+                    borderRadius: "Rayon de Bordure",
+                    padding: "Rembourrage",
+                    resetUI: "Réinitialiser",
+                    exportUI: "Exporter",
+                    importUI: "Importer",
+                    livePreview: "Aperçu en Direct",
+                    primaryColor: "Couleur Primaire",
+                    secondaryColor: "Couleur Secondaire",
+                    bgColor: "Couleur d'Arrière-plan",
+                    textColor: "Couleur de Texte",
+                    defaultTheme: "Par Défaut",
+                    oceanTheme: "Océan",
+                    sunsetTheme: "Coucher de Soleil",
+                    forestTheme: "Forêt",
+                    neonTheme: "Néon",
+                    pastelTheme: "Pastel"
+                },
+                de: {
+                    title: "Multimedia-Player und Werkzeuge",
+                    calendarView: "Zuweisungskalender",
+                    calendarDescription: "Laden Sie Dateien hoch, weisen Sie sie Tagen zu und spielen Sie sie ab.",
+                    loadFiles: "Laden Sie Ihre Multimedia-Dateien hoch",
+                    fileLoadDescription: "Wählen Sie Dateien (Audio, Video oder Fotos) von Ihrem Gerät aus. Sie werden lokal in Ihrem Browser gespeichert.",
+                    calendarInteractive: "Interaktiver Kalender",
+                    calendarInteractiveDescription: "Klicken Sie auf einen Tag, um dessen Inhalt abzuspielen oder anzuzeigen. Wenn er keinen hat, können Sie ihm einen zuweisen.",
+                    mediaTools: "Erstellungs- und Dienstprogramm-Werkzeuge",
+                    mediaToolsDescription: "Erstellen Sie Audio aus Text, konvertieren Sie Formate und exportieren Sie Daten.",
+                    createAudio: "Audio erstellen (Lokale Text-zu-Sprache)",
+                    createAudioDescription: "Schreiben Sie den Text. Sie können ihn in Ihrem Browser abspielen.",
+                    textPlaceholder: "Schreiben Sie den Text, den Ihr Browser sprechen soll...",
+                    playVoice: "Stimme abspielen (TTS)",
+                    mediaConverter: "Multimedia-Konverter (Simulation)",
+                    converterDescription: "Konvertierungssimulation. Wählen Sie eine geladene Datei und ein Ausgabeformat aus.",
+                    selectFileConvert: "Zu konvertierende Datei:",
+                    selectFormat: "Ausgabeformat:",
+                    convertFile: "Datei konvertieren",
+                    exportData: "Alle Daten exportieren",
+                    exportDescription: "Laden Sie eine JSON-Datei mit allen Kalenderzuweisungen UND Multimedia-Dateien herunter (Base64-kodiert).",
+                    downloadBackup: "JSON-Backup-Datei herunterladen",
+                    importData: "Zuweisungen importieren",
+                    importDescription: "Wählen Sie eine JSON-Backup-Datei aus, um Ihre Zuweisungen wiederherzustellen.",
+                    selectBackup: "JSON-Datei auswählen",
+                    restoreBackup: "Aus Backup wiederherstellen",
+                    beatMaker: "Beat-Maschine (Beats)",
+                    beatMakerDescription: "Erstellen Sie einzigartige Rhythmen mit verschiedenen Instrumenten.",
+                    bpm: "BPM",
+                    volume: "Lautstärke",
+                    play: "Abspielen",
+                    stop: "Stopp",
+                    clear: "Löschen",
+                    languageSelector: "Deutsch",
+                    uiEditor: "UI-Editor",
+                    imageEdit: "Bilder",
+                    videoEdit: "Videos",
+                    accessibilityMode: "Reader-Modus",
+                    accessibilityModeOff: "Reader-Modus (Deaktiviert)",
+                    accessibilityModeOn: "Reader-Modus (Aktiviert)",
+                    reset: "Zurücksetzen",
+                    save: "Speichern",
+
+                    uiEditorTitle: "Erweiterter UI-Editor",
+                    themeColors: "Themenfarben",
+                    typography: "Typografie",
+                    spacingBorders: "Abstände und Rahmen",
+                    presetThemes: "Voreingestellte Themen",
+                    fontFamily: "Schriftfamilie",
+                    baseFontSize: "Basis-Schriftgröße",
+                    borderRadius: "Rahmenradius",
+                    padding: "Abstand",
+                    resetUI: "Zurücksetzen",
+                    exportUI: "Exportieren",
+                    importUI: "Importieren",
+                    livePreview: "Live-Vorschau",
+                    primaryColor: "Primärfarbe",
+                    secondaryColor: "Sekundärfarbe",
+                    bgColor: "Hintergrundfarbe",
+                    textColor: "Textfarbe",
+                    defaultTheme: "Standard",
+                    oceanTheme: "Ozean",
+                    sunsetTheme: "Sonnenuntergang",
+                    forestTheme: "Wald",
+                    neonTheme: "Neon",
+                    pastelTheme: "Pastell"
+                },
+                pt: {
+                    title: "Reprodutor Multimídia e Ferramentas",
+                    calendarView: "Calendário de Atribuição",
+                    calendarDescription: "Carregue arquivos, atribua-os a dias e reproduza-os.",
+                    loadFiles: "Carregue seus Arquivos Multimídia",
+                    fileLoadDescription: "Selecione os arquivos (áudio, vídeo ou fotos) do seu dispositivo. Eles são salvos localmente no seu navegador.",
+                    calendarInteractive: "Calendário Interativo",
+                    calendarInteractiveDescription: "Clique em um dia para reproduzir ou ver seu conteúdo. Se não tiver, você pode atribuir.",
+                    mediaTools: "Ferramentas de Criação e Utilidade",
+                    mediaToolsDescription: "Crie áudio a partir de texto, converta formatos e exporte dados.",
+                    createAudio: "Criar Áudio (Texto para Voz Local)",
+                    createAudioDescription: "Escreva o texto. Você pode reproduzi-lo no seu navegador.",
+                    textPlaceholder: "Escreva o texto que você quer que seu navegador fale...",
+                    playVoice: "Reproduzir Voz (TTS)",
+                    mediaConverter: "Conversor Multimídia (Simulação)",
+                    converterDescription: "Simulação de conversão. Selecione um arquivo carregado e um formato de saída.",
+                    selectFileConvert: "Arquivo para converter:",
+                    selectFormat: "Formato de saída:",
+                    convertFile: "Converter Arquivo",
+                    exportData: "Exportar Todos os Dados",
+                    exportDescription: "Baixe um arquivo JSON com todas as atribuições do calendário E os arquivos multimídia (codificados em Base64).",
+                    downloadBackup: "Baixar Arquivo JSON de Backup",
+                    importData: "Importar Atribuições",
+                    importDescription: "Selecione um arquivo JSON de backup para restaurar suas atribuições.",
+                    selectBackup: "Selecionar Arquivo JSON",
+                    restoreBackup: "Restaurar do Backup",
+                    beatMaker: "Máquina de Batidas (Beats)",
+                    beatMakerDescription: "Crie ritmos únicos usando diferentes instrumentos.",
+                    bpm: "BPM",
+                    volume: "Volume",
+                    play: "Reproduzir",
+                    stop: "Parar",
+                    clear: "Limpar",
+                    languageSelector: "Português",
+                    uiEditor: "Editor UI",
+                    imageEdit: "Imagens",
+                    videoEdit: "Vídeos",
+                    accessibilityMode: "Modo Leitor",
+                    accessibilityModeOff: "Modo Leitor (Desativado)",
+                    accessibilityModeOn: "Modo Leitor (Ativado)",
+                    reset: "Redefinir",
+                    save: "Salvar",
+
+                    uiEditorTitle: "Editor Avançado de UI",
+                    themeColors: "Cores do Tema",
+                    typography: "Tipografia",
+                    spacingBorders: "Espaçamento e Bordas",
+                    presetThemes: "Temas Predefinidos",
+                    fontFamily: "Família da Fonte",
+                    baseFontSize: "Tamanho Base da Fonte",
+                    borderRadius: "Raio da Borda",
+                    padding: "Preenchimento",
+                    resetUI: "Redefinir",
+                    exportUI: "Exportar",
+                    importUI: "Importar",
+                    livePreview: "Visualização ao Vivo",
+                    primaryColor: "Cor Primária",
+                    secondaryColor: "Cor Secundária",
+                    bgColor: "Cor de Fundo",
+                    textColor: "Cor do Texto",
+                    defaultTheme: "Padrão",
+                    oceanTheme: "Oceano",
+                    sunsetTheme: "Pôr do Sol",
+                    forestTheme: "Floresta",
+                    neonTheme: "Neon",
+                    pastelTheme: "Pastel"
+                }
+            };
+
+            let currentLanguage = localStorage.getItem('selectedLanguage') || 'es';
+
+            function applyLanguage(lang) {
+                const langData = translations[lang];
+                if (!langData) return;
+
+                currentLanguage = lang;
+                localStorage.setItem('selectedLanguage', lang);
+
+                // Actualizar elementos de texto principales
+                document.getElementById('languageText').textContent = langData.languageSelector;
+                document.querySelector('title').textContent = langData.title;
+                document.querySelector('h1').textContent = langData.calendarView;
+                document.querySelector('.text-lg').textContent = langData.calendarDescription;
+                
+                // Actualizar títulos de secciones del calendario
+                const sectionHeaders = document.querySelectorAll('section h2');
+                if (sectionHeaders[0]) sectionHeaders[0].textContent = langData.loadFiles;
+                if (sectionHeaders[1]) sectionHeaders[1].textContent = langData.calendarInteractive;
+                
+                // Actualizar descripciones
+                const descriptions = document.querySelectorAll('section p');
+                if (descriptions[0]) descriptions[0].textContent = langData.fileLoadDescription;
+                if (descriptions[1]) descriptions[1].textContent = langData.calendarInteractiveDescription;
+                
+                // Actualizar vista de herramientas multimedia
+                const mediaToolsHeader = document.querySelector('#mediaToolsView h1');
+                if (mediaToolsHeader) mediaToolsHeader.textContent = langData.mediaTools;
+                const mediaToolsDesc = document.querySelector('#mediaToolsView .text-lg');
+                if (mediaToolsDesc) mediaToolsDesc.textContent = langData.mediaToolsDescription;
+                
+                // Actualizar títulos de herramientas
+                const toolHeaders = document.querySelectorAll('#mediaToolsView section h2');
+                if (toolHeaders[0]) toolHeaders[0].textContent = langData.createAudio;
+                if (toolHeaders[1]) toolHeaders[1].textContent = langData.mediaConverter;
+                if (toolHeaders[2]) toolHeaders[2].textContent = langData.exportData;
+                if (toolHeaders[3]) toolHeaders[3].textContent = langData.importData;
+                
+                // Actualizar descripciones de herramientas
+                const toolDescriptions = document.querySelectorAll('#mediaToolsView section p');
+                if (toolDescriptions[0]) toolDescriptions[0].textContent = langData.createAudioDescription;
+                if (toolDescriptions[1]) toolDescriptions[1].textContent = langData.converterDescription;
+                if (toolDescriptions[2]) toolDescriptions[2].textContent = langData.exportDescription;
+                if (toolDescriptions[3]) toolDescriptions[3].textContent = langData.importDescription;
+                
+                // Actualizar placeholders y labels
+                const ttsTextarea = document.getElementById('ttsText');
+                if (ttsTextarea) ttsTextarea.placeholder = langData.textPlaceholder;
+                
+                const ttsButton = document.getElementById('ttsGenerate');
+                if (ttsButton) ttsButton.textContent = langData.playVoice;
+                
+                // Actualizar selector de idioma y editor UI
+                document.getElementById('languageText').textContent = langData.languageSelector;
+                document.getElementById('uiEditorText').textContent = langData.uiEditor;
+                document.getElementById('uiEditorText').textContent = langData.uiEditor;
+                
+                // Actualizar botón de accesibilidad
+                const a11yText = document.getElementById('a11yAnnouncerText');
+                const isEnabled = a11yText.textContent.includes('Activado') || a11yText.textContent.includes('Enabled');
+                a11yText.textContent = isEnabled ? langData.accessibilityModeOn : langData.accessibilityModeOff;
+                
+
+                
+                // Actualizar vista de beat maker
+                const beatHeader = document.querySelector('#beatMakerView h1');
+                if (beatHeader) beatHeader.textContent = langData.beatMaker;
+                
+                // Actualizar botones de navegación
+                const navButtons = document.querySelectorAll('nav button[data-view]');
+                const viewTexts = [langData.calendarView, langData.mediaTools, langData.beatMaker];
+                navButtons.forEach((btn, index) => {
+                    if (viewTexts[index]) {
+                        const span = btn.querySelector('span');
+                        if (span) span.textContent = viewTexts[index];
+                    }
+                });
+            }
+
+            // =====================================================
+            // EDITOR AVANZADO DE UI
+            // =====================================================
+
+            const themePresets = {
+                default: {
+                    primary: '#3b82f6',
+                    secondary: '#6b7280',
+                    bg: '#1f2937',
+                    text: '#ffffff',
+                    fontFamily: 'Inter',
+                    fontSize: '16px',
+                    borderRadius: '8px',
+                    padding: '16px'
+                },
+                ocean: {
+                    primary: '#0ea5e9',
+                    secondary: '#0891b2',
+                    bg: '#0c4a6e',
+                    text: '#e0f2fe',
+                    fontFamily: 'Georgia',
+                    fontSize: '16px',
+                    borderRadius: '8px',
+                    padding: '16px'
+                },
+                sunset: {
+                    primary: '#f97316',
+                    secondary: '#ea580c',
+                    bg: '#7c2d12',
+                    text: '#fed7aa',
+                    fontFamily: 'Times New Roman',
+                    fontSize: '17px',
+                    borderRadius: '10px',
+                    padding: '18px'
+                },
+                forest: {
+                    primary: '#059669',
+                    secondary: '#047857',
+                    bg: '#064e3b',
+                    text: '#a7f3d0',
+                    fontFamily: 'Georgia',
+                    fontSize: '16px',
+                    borderRadius: '6px',
+                    padding: '14px'
+                },
+                neon: {
+                    primary: '#8b5cf6',
+                    secondary: '#7c3aed',
+                    bg: '#1a0033',
+                    text: '#e879f9',
+                    fontFamily: 'Courier New',
+                    fontSize: '15px',
+                    borderRadius: '4px',
+                    padding: '12px'
+                },
+                pastel: {
+                    primary: '#f472b6',
+                    secondary: '#fbbf24',
+                    bg: '#fdf2f8',
+                    text: '#4a1a52',
+                    fontFamily: 'Georgia',
+                    fontSize: '16px',
+                    borderRadius: '12px',
+                    padding: '20px'
+                }
+            };
+
+            function applyUIPreset(presetName) {
+                const preset = themePresets[presetName];
+                if (!preset) return;
+
+                // Aplicar colores directamente a los elementos
+                const root = document.documentElement;
+                
+                // Configurar variables CSS
+                root.style.setProperty('--primary-color', preset.primary);
+                root.style.setProperty('--secondary-color', preset.secondary);
+                root.style.setProperty('--bg-color', preset.bg);
+                root.style.setProperty('--text-color', preset.text);
+
+                // Aplicar font family al body
+                document.body.style.fontFamily = preset.fontFamily;
+                document.body.style.fontSize = preset.fontSize;
+                document.body.style.color = preset.text;
+
+                // Aplicar colores de fondo a elementos principales
+                document.querySelectorAll('body, #mainContentWrapper').forEach(el => {
+                    el.style.backgroundColor = preset.bg;
+                    el.style.color = preset.text;
+                });
+
+                // Aplicar estilos a contenedores principales
+                document.querySelectorAll('.bg-gray-800, .bg-gray-700').forEach(el => {
+                    el.style.backgroundColor = preset.bg;
+                    el.style.borderColor = preset.secondary;
+                    el.style.padding = preset.padding;
+                    el.style.color = preset.text;
+                });
+
+                // Aplicar estilos a botones
+                document.querySelectorAll('button').forEach(btn => {
+                    // Solo aplicar si no es un botón específico que ya tiene estilo
+                    if (!btn.classList.contains('file-input') && !btn.id.includes('Modal')) {
+                        btn.style.borderRadius = preset.borderRadius;
+                        if (btn.classList.contains('bg-blue-600') || btn.classList.contains('hover:bg-blue')) {
+                            btn.style.backgroundColor = preset.primary;
+                        }
+                    }
+                });
+
+                // Aplicar estilos a inputs y selects
+                document.querySelectorAll('input, textarea, select').forEach(input => {
+                    input.style.borderRadius = preset.borderRadius;
+                });
+
+                // Actualizar vista previa con estilos dinámicos
+                const preview = document.getElementById('uiPreview');
+                if (preview) {
+                    preview.style.setProperty('--preview-primary', preset.primary);
+                    preview.style.setProperty('--preview-secondary', preset.secondary);
+                    preview.style.setProperty('--preview-bg', preset.bg);
+                    preview.style.setProperty('--preview-text', preset.text);
+                    
+                    // Aplicar estilos directamente a elementos de preview
+                    const previewButton = preview.querySelector('#previewButton');
+                    if (previewButton) {
+                        previewButton.style.backgroundColor = preset.primary;
+                        previewButton.style.color = '#ffffff';
+                    }
+                }
+
+                // Actualizar valores en la interfaz de control
+                document.getElementById('primaryColorPicker').value = preset.primary;
+                document.getElementById('secondaryColorPicker').value = preset.secondary;
+                document.getElementById('bgColorPicker').value = preset.bg;
+                document.getElementById('textColorPicker').value = preset.text;
+                document.getElementById('fontFamilyPicker').value = preset.fontFamily;
+                document.getElementById('fontSizePicker').value = parseInt(preset.fontSize);
+                document.getElementById('fontSizeValue').textContent = preset.fontSize;
+                document.getElementById('borderRadiusPicker').value = parseInt(preset.borderRadius);
+                document.getElementById('borderRadiusValue').textContent = preset.borderRadius;
+                document.getElementById('paddingPicker').value = parseInt(preset.padding);
+                document.getElementById('paddingValue').textContent = preset.padding;
+
+                // Aplicar como "custom" si no es un preset predefinido
+                if (presetName === 'custom') {
+                    saveUISettings();
+                }
+
+                // Mostrar notificación de éxito
+                showNotification(`Tema "${presetName === 'custom' ? 'Personalizado' : presetName}" aplicado exitosamente`, 'success');
+            }
+
+            function applyCustomStyles() {
+                const settings = {
+                    primary: document.getElementById('primaryColorPicker').value,
+                    secondary: document.getElementById('secondaryColorPicker').value,
+                    bg: document.getElementById('bgColorPicker').value,
+                    text: document.getElementById('textColorPicker').value,
+                    fontFamily: document.getElementById('fontFamilyPicker').value,
+                    fontSize: document.getElementById('fontSizePicker').value + 'px',
+                    borderRadius: document.getElementById('borderRadiusPicker').value + 'px',
+                    padding: document.getElementById('paddingPicker').value + 'px'
+                };
+
+                // Aplicar directamente los estilos personalizados
+                const root = document.documentElement;
+                root.style.setProperty('--primary-color', settings.primary);
+                root.style.setProperty('--secondary-color', settings.secondary);
+                root.style.setProperty('--bg-color', settings.bg);
+                root.style.setProperty('--text-color', settings.text);
+
+                document.body.style.fontFamily = settings.fontFamily;
+                document.body.style.fontSize = settings.fontSize;
+                document.body.style.color = settings.text;
+
+                // Aplicar a contenedores
+                document.querySelectorAll('.bg-gray-800, .bg-gray-700').forEach(el => {
+                    el.style.backgroundColor = settings.bg;
+                    el.style.borderColor = settings.secondary;
+                    el.style.padding = settings.padding;
+                    el.style.color = settings.text;
+                });
+
+                // Aplicar a botones
+                document.querySelectorAll('button').forEach(btn => {
+                    if (!btn.classList.contains('file-input') && !btn.id.includes('Modal')) {
+                        btn.style.borderRadius = settings.borderRadius;
+                    }
+                });
+
+                // Aplicar a inputs
+                document.querySelectorAll('input, textarea, select').forEach(input => {
+                    input.style.borderRadius = settings.borderRadius;
+                });
+
+                // Actualizar vista previa
+                const preview = document.getElementById('uiPreview');
+                if (preview) {
+                    preview.style.setProperty('--preview-primary', settings.primary);
+                    preview.style.setProperty('--preview-secondary', settings.secondary);
+                    preview.style.setProperty('--preview-bg', settings.bg);
+                    preview.style.setProperty('--preview-text', settings.text);
+                    
+                    const previewButton = preview.querySelector('#previewButton');
+                    if (previewButton) {
+                        previewButton.style.backgroundColor = settings.primary;
+                        previewButton.style.color = '#ffffff';
+                    }
+                }
+
+                saveUISettings();
+                showNotification('Estilos personalizados aplicados', 'success');
+            }
+
+            function saveUISettings() {
+                const settings = {
+                    primary: document.getElementById('primaryColorPicker').value,
+                    secondary: document.getElementById('secondaryColorPicker').value,
+                    bg: document.getElementById('bgColorPicker').value,
+                    text: document.getElementById('textColorPicker').value,
+                    fontFamily: document.getElementById('fontFamilyPicker').value,
+                    fontSize: document.getElementById('fontSizePicker').value + 'px',
+                    borderRadius: document.getElementById('borderRadiusPicker').value + 'px',
+                    padding: document.getElementById('paddingPicker').value + 'px'
+                };
+                localStorage.setItem('uiSettings', JSON.stringify(settings));
+            }
+
+            function loadUISettings() {
+                const saved = localStorage.getItem('uiSettings');
+                if (saved) {
+                    const settings = JSON.parse(saved);
+                    document.getElementById('primaryColorPicker').value = settings.primary;
+                    document.getElementById('secondaryColorPicker').value = settings.secondary;
+                    document.getElementById('bgColorPicker').value = settings.bg;
+                    document.getElementById('textColorPicker').value = settings.text;
+                    document.getElementById('fontFamilyPicker').value = settings.fontFamily;
+                    document.getElementById('fontSizePicker').value = parseInt(settings.fontSize);
+                    document.getElementById('fontSizeValue').textContent = settings.fontSize;
+                    document.getElementById('borderRadiusPicker').value = parseInt(settings.borderRadius);
+                    document.getElementById('borderRadiusValue').textContent = settings.borderRadius;
+                    document.getElementById('paddingPicker').value = parseInt(settings.padding);
+                    document.getElementById('paddingValue').textContent = settings.padding;
+
+                    applyUIPreset('custom');
+                }
+            }
+
+            // =====================================================
+            // EDITOR DE MULTIMEDIA
+            // =====================================================
+
+
+
+
+
+            // Esta función fue reemplazada por la versión más completa arriba
+
+
+
+
+
+            // =====================================================
+            // INICIALIZACIÓN DE EVENTOS PARA NUEVAS FUNCIONALIDADES
+            // =====================================================
+
+            // Eventos del selector de idioma
+            document.getElementById('languageSelector').addEventListener('click', () => {
+                document.getElementById('languageModal').classList.remove('hidden');
+                if (isAnnouncerActive) {
+                    speakAnnounce('Modal de selección de idioma abierto. Mueva el ratón sobre los idiomas disponibles.');
+                }
+            });
+
+            document.getElementById('languageModalClose').addEventListener('click', () => {
+                document.getElementById('languageModal').classList.add('hidden');
+                if (isAnnouncerActive) {
+                    speakAnnounce('Modal de selección de idioma cerrado.');
+                }
+            });
+
+            document.querySelectorAll('.language-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    const lang = this.dataset.lang;
+                    if (isAnnouncerActive) {
+                        const langNames = {
+                            'es': 'Español',
+                            'en': 'Inglés', 
+                            'fr': 'Francés',
+                            'de': 'Alemán',
+                            'pt': 'Portugués'
+                        };
+                        speakAnnounce(`Idioma cambiado a ${langNames[lang]}. Cerrando modal.`);
+                    }
+                    applyLanguage(lang);
+                    setTimeout(() => {
+                        document.getElementById('languageModal').classList.add('hidden');
+                    }, 500);
+                });
+            });
+
+            // Eventos del editor de UI
+            document.getElementById('uiEditorToggle').addEventListener('click', () => {
+                document.getElementById('uiEditorModal').classList.remove('hidden');
+                loadUISettings();
+                if (isAnnouncerActive) {
+                    speakAnnounce('Modal del editor de interfaz abierto. Mueva el ratón sobre los controles para escuchar sus descripciones. Use los selectores de color, deslizadores y botones de tema para personalizar la interfaz.');
+                }
+            });
+
+            document.getElementById('uiEditorModalClose').addEventListener('click', () => {
+                document.getElementById('uiEditorModal').classList.add('hidden');
+                if (isAnnouncerActive) {
+                    speakAnnounce('Modal del editor de interfaz cerrado.');
+                }
+            });
+
+            // Eventos de colores (aplicación en tiempo real)
+            ['primaryColorPicker', 'secondaryColorPicker', 'bgColorPicker', 'textColorPicker'].forEach(id => {
+                document.getElementById(id).addEventListener('input', function() {
+                    applyCustomStyles();
+                    if (isAnnouncerActive) {
+                        const colorNames = {
+                            'primaryColorPicker': 'Color primario',
+                            'secondaryColorPicker': 'Color secundario', 
+                            'bgColorPicker': 'Color de fondo',
+                            'textColorPicker': 'Color de texto'
+                        };
+                        speakAnnounce(`${colorNames[id]} cambiado a ${this.value}. Los cambios se aplican inmediatamente.`);
+                    }
+                });
+            });
+
+            // Eventos de tipografía
+            document.getElementById('fontFamilyPicker').addEventListener('change', function() {
+                applyCustomStyles();
+                if (isAnnouncerActive) {
+                    speakAnnounce(`Fuente cambiada a ${this.value}. Los cambios se aplican inmediatamente.`);
+                }
+            });
+
+            document.getElementById('fontSizePicker').addEventListener('input', function() {
+                document.getElementById('fontSizeValue').textContent = this.value + 'px';
+                applyCustomStyles();
+                if (isAnnouncerActive) {
+                    speakAnnounce(`Tamaño de fuente cambiado a ${this.value} píxeles. Los cambios se aplican inmediatamente.`);
+                }
+            });
+
+            // Eventos de espaciado
+            document.getElementById('borderRadiusPicker').addEventListener('input', function() {
+                document.getElementById('borderRadiusValue').textContent = this.value + 'px';
+                applyCustomStyles();
+                if (isAnnouncerActive) {
+                    speakAnnounce(`Radio de borde cambiado a ${this.value} píxeles. Los cambios se aplican inmediatamente.`);
+                }
+            });
+
+            document.getElementById('paddingPicker').addEventListener('input', function() {
+                document.getElementById('paddingValue').textContent = this.value + 'px';
+                applyCustomStyles();
+                if (isAnnouncerActive) {
+                    speakAnnounce(`Padding cambiado a ${this.value} píxeles. Los cambios se aplican inmediatamente.`);
+                }
+            });
+
+            // Eventos de temas predefinidos
+            document.querySelectorAll('.theme-preset').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const theme = this.dataset.theme;
+                    applyUIPreset(theme);
+                    if (isAnnouncerActive) {
+                        const themeNames = {
+                            'default': 'Por Defecto',
+                            'ocean': 'Océano',
+                            'sunset': 'Atardecer', 
+                            'forest': 'Bosque',
+                            'neon': 'Neón',
+                            'pastel': 'Pastel'
+                        };
+                        speakAnnounce(`Tema "${themeNames[theme]}" aplicado. Los cambios se han aplicado a toda la interfaz.`);
+                    }
+                });
+            });
+
+            // Eventos de acciones del editor UI
+            document.getElementById('resetUI').addEventListener('click', () => {
+                applyUIPreset('default');
+                localStorage.removeItem('uiSettings');
+                showNotification('UI restablecida a valores por defecto', 'success');
+                if (isAnnouncerActive) {
+                    speakAnnounce('Interfaz restablecida a los valores por defecto. Todos los cambios personalizados han sido eliminados.');
+                }
+            });
+
+            document.getElementById('exportUISettings').addEventListener('click', () => {
+                const currentSettings = localStorage.getItem('uiSettings');
+                let settings;
+                
+                // Si hay configuraciones guardadas, usarlas; sino crear desde valores actuales
+                if (currentSettings) {
+                    try {
+                        settings = JSON.parse(currentSettings);
+                        settings = createUIThemeTemplate(settings.name || 'Mi Tema Personalizado');
+                    } catch (e) {
+                        settings = createUIThemeTemplate('Tema Exportado');
+                    }
+                } else {
+                    // Crear plantilla desde valores actuales del editor
+                    settings = createUIThemeTemplate('Tema Personalizado');
+                }
+
+                // Crear nombre de archivo con fecha
+                const date = new Date().toISOString().split('T')[0];
+                const fileName = `ui-theme-${settings.name.toLowerCase().replace(/\s+/g, '-')}-${date}.ui-theme`;
+
+                // Convertir a JSON con formato legible
+                const jsonContent = JSON.stringify(settings, null, 2);
+                
+                const blob = new Blob([jsonContent], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showNotification(`Plantilla "${settings.name}" exportada exitosamente`, 'success');
+                
+                if (isAnnouncerActive) {
+                    speakAnnounce(`Configuración de interfaz exportada exitosamente como archivo ${fileName}. La descarga ha comenzado.`);
+                }
+            });
+
+            // Añadir botón de importar configuraciones
+            const importBtn = document.createElement('button');
+            importBtn.id = 'importUISettings';
+            importBtn.className = 'flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors';
+            importBtn.textContent = 'Importar';
+            
+            // Insertar el botón de importar junto al botón de exportar
+            const actionsContainer = document.querySelector('#uiEditorModal .flex.space-x-4');
+            if (actionsContainer) {
+                actionsContainer.appendChild(importBtn);
+            }
+
+            document.getElementById('importUISettings').addEventListener('click', () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json,.ui-theme,.ui-tema';
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            try {
+                                const settings = JSON.parse(event.target.result);
+                                
+                                // Validación completa de la estructura de la plantilla
+                                if (validateUISettings(settings)) {
+                                    // Aplicar configuraciones importadas
+                                    document.getElementById('primaryColorPicker').value = settings.primary;
+                                    document.getElementById('secondaryColorPicker').value = settings.secondary;
+                                    document.getElementById('bgColorPicker').value = settings.bg;
+                                    document.getElementById('textColorPicker').value = settings.text;
+                                    
+                                    if (settings.fontFamily) {
+                                        document.getElementById('fontFamilyPicker').value = settings.fontFamily;
+                                    }
+                                    if (settings.fontSize) {
+                                        const fontSize = parseInt(settings.fontSize);
+                                        document.getElementById('fontSizePicker').value = fontSize;
+                                        document.getElementById('fontSizeValue').textContent = settings.fontSize;
+                                    }
+                                    if (settings.borderRadius) {
+                                        const borderRadius = parseInt(settings.borderRadius);
+                                        document.getElementById('borderRadiusPicker').value = borderRadius;
+                                        document.getElementById('borderRadiusValue').textContent = settings.borderRadius;
+                                    }
+                                    if (settings.padding) {
+                                        const padding = parseInt(settings.padding);
+                                        document.getElementById('paddingPicker').value = padding;
+                                        document.getElementById('paddingValue').textContent = settings.padding;
+                                    }
+                                    
+                                    // Aplicar los estilos importados
+                                    applyCustomStyles();
+                                    showNotification(`Plantilla "${settings.name || file.name}" importada exitosamente`, 'success');
+                                    
+                                    if (isAnnouncerActive) {
+                                        speakAnnounce(`Plantilla "${settings.name || file.name}" importada exitosamente. Los estilos se han aplicado a la interfaz.`);
+                                    }
+                                } else {
+                                    showNotification('Archivo de plantilla UI inválido o corrupto', 'error');
+                                    
+                                    if (isAnnouncerActive) {
+                                        speakAnnounce('Error: El archivo de plantilla UI no es válido o está corrupto.');
+                                    }
+                                }
+                            } catch (error) {
+                                showNotification('Error al leer el archivo JSON: ' + error.message, 'error');
+                                
+                                if (isAnnouncerActive) {
+                                    speakAnnounce(`Error al leer el archivo JSON: ${error.message}`);
+                                }
+                            }
+                        };
+                        reader.readAsText(file);
+                    }
+                };
+                input.click();
+            });
+
+
+
+            // =====================================================
+            // INICIALIZACIÓN FINAL
+            // =====================================================
+
+            // Aplicar idioma guardado
+            applyLanguage(currentLanguage);
+
+            // Cargar configuraciones de UI guardadas
+            loadUISettings();
+
+
+
+            // =====================================================
+            // FUNCIONES AUXILIARES
+            // =====================================================
+
+            // =====================================================
+            // FUNCIONES DE BASE DE DATOS PARA EDITOR MULTIMEDIA
+            // =====================================================
+
+            function getAllMediaFromDB() {
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction(['media'], 'readonly');
+                    const store = transaction.objectStore('media');
+                    const request = store.getAll();
+                    
+                    request.onsuccess = () => {
+                        const files = request.result.map(item => ({
+                            id: item.id,
+                            name: item.name,
+                            type: item.type,
+                            blob: item.blob,
+                            timestamp: item.timestamp
+                        }));
+                        resolve(files);
+                    };
+                    
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            function getMediaFromDB(id) {
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction(['media'], 'readonly');
+                    const store = transaction.objectStore('media');
+                    const request = store.get(parseInt(id));
+                    
+                    request.onsuccess = () => {
+                        if (request.result) {
+                            resolve({
+                                id: request.result.id,
+                                name: request.result.name,
+                                type: request.result.type,
+                                blob: request.result.blob,
+                                timestamp: request.result.timestamp
+                            });
+                        } else {
+                            reject(new Error('File not found'));
+                        }
+                    };
+                    
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            function updateMediaInDB(id, updatedBlob) {
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction(['media'], 'readwrite');
+                    const store = transaction.objectStore('media');
+                    const getRequest = store.get(parseInt(id));
+                    
+                    getRequest.onsuccess = () => {
+                        const mediaData = getRequest.result;
+                        if (mediaData) {
+                            mediaData.blob = updatedBlob;
+                            mediaData.timestamp = Date.now();
+                            const updateRequest = store.put(mediaData);
+                            
+                            updateRequest.onsuccess = () => resolve();
+                            updateRequest.onerror = () => reject(updateRequest.error);
+                        } else {
+                            reject(new Error('Media not found'));
+                        }
+                    };
+                    
+                    getRequest.onerror = () => reject(getRequest.error);
+                });
+            }
+
+            function showNotification(message, type = 'info') {
+                // Crear elemento de notificación
+                const notification = document.createElement('div');
+                notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 transform translate-x-full`;
+                
+                // Configurar colores según tipo
+                const colors = {
+                    success: 'bg-green-600 text-white',
+                    error: 'bg-red-600 text-white', 
+                    warning: 'bg-yellow-600 text-white',
+                    info: 'bg-blue-600 text-white'
+                };
+                
+                notification.className += ` ${colors[type] || colors.info}`;
+                notification.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <span>${message}</span>
+                        <button onclick="this.parentElement.parentElement.remove()" class="ml-2 text-white hover:text-gray-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                
+                document.body.appendChild(notification);
+                
+                // Mostrar con animación
+                setTimeout(() => {
+                    notification.classList.remove('translate-x-full');
+                }, 100);
+                
+                // Auto-ocultar después de 3 segundos
+                setTimeout(() => {
+                    notification.classList.add('translate-x-full');
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.remove();
+                        }
+                    }, 300);
+                }, 3000);
+            }
+
+            // =====================================================
+            // FUNCIONES DE VALIDACIÓN PARA PLANTILLAS UI
+            // =====================================================
+
+            function validateUISettings(settings) {
+                // Validar que es un objeto
+                if (typeof settings !== 'object' || settings === null) {
+                    return false;
+                }
+
+                // Validar colores (deben ser strings hexadecimales válidos)
+                const hexColorRegex = /^#[0-9A-Fa-f]{6}$/;
+                if (settings.primary && !hexColorRegex.test(settings.primary)) return false;
+                if (settings.secondary && !hexColorRegex.test(settings.secondary)) return false;
+                if (settings.bg && !hexColorRegex.test(settings.bg)) return false;
+                if (settings.text && !hexColorRegex.test(settings.text)) return false;
+
+                // Validar fontSize si existe
+                if (settings.fontSize && !settings.fontSize.match(/^\d+px$/)) return false;
+
+                // Validar borderRadius si existe
+                if (settings.borderRadius && !settings.borderRadius.match(/^\d+px$/)) return false;
+
+                // Validar padding si existe
+                if (settings.padding && !settings.padding.match(/^\d+px$/)) return false;
+
+                // Al menos uno de los campos obligatorios debe estar presente
+                return settings.primary || settings.secondary || settings.bg || settings.text;
+            }
+
+            function createUIThemeTemplate(name, author = 'Usuario') {
+                const settings = {
+                    name: name,
+                    version: '1.0',
+                    author: author,
+                    created: new Date().toISOString(),
+                    primary: document.getElementById('primaryColorPicker').value,
+                    secondary: document.getElementById('secondaryColorPicker').value,
+                    bg: document.getElementById('bgColorPicker').value,
+                    text: document.getElementById('textColorPicker').value,
+                    fontFamily: document.getElementById('fontFamilyPicker').value,
+                    fontSize: document.getElementById('fontSizePicker').value + 'px',
+                    borderRadius: document.getElementById('borderRadiusPicker').value + 'px',
+                    padding: document.getElementById('paddingPicker').value + 'px',
+                    description: 'Plantilla de tema UI creada con MediaSuite',
+                    tags: ['custom', 'ui', 'theme']
+                };
+                return settings;
+            }
+
+            // --- INICIALIZACIÓN ORIGINAL ---
+            initDB();
+        }; // Cierre de window.onload
+    </script>
+</body>
+</html>
