@@ -1,0 +1,1801 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FotoStudio Max - Smart Text</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts for Text Tool options -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&family=Open+Sans&family=Lato&family=Montserrat&family=Oswald&family=Raleway&family=Merriweather&family=Playfair+Display&display=swap" rel="stylesheet">
+    
+    <style>
+        body { overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; } /* Prevenir selección y scroll global */
+        
+        /* Permitir scroll en los paneles de interfaz */
+        #toolbar, #layer-list, #layer-options-panel, #info-panel {
+            touch-action: pan-x pan-y !important;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        #canvas-stage {
+            background-image: 
+                linear-gradient(45deg, #4b5563 25%, transparent 25%), 
+                linear-gradient(-45deg, #4b5563 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #4b5563 75%), 
+                linear-gradient(-45deg, transparent 75%, #4b5563 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        /* Cursores personalizados */
+        .cursor-nw-resize { cursor: nw-resize; }
+        .cursor-ne-resize { cursor: ne-resize; }
+        .cursor-sw-resize { cursor: sw-resize; }
+        .cursor-se-resize { cursor: se-resize; }
+        .cursor-n-resize { cursor: n-resize; }
+        .cursor-s-resize { cursor: s-resize; }
+        .cursor-e-resize { cursor: e-resize; }
+        .cursor-w-resize { cursor: w-resize; }
+        .cursor-grab { cursor: grab; }
+        .cursor-crosshair { cursor: crosshair; }
+
+        /* Estilo para notificaciones Toast */
+        .toast-enter { opacity: 0; transform: translateY(20px); }
+        .toast-enter-active { opacity: 1; transform: translateY(0); transition: opacity 300ms, transform 300ms; }
+        .toast-exit { opacity: 1; transform: translateY(0); }
+        .toast-exit-active { opacity: 0; transform: translateY(-20px); transition: opacity 300ms, transform 300ms; }
+
+        @media (max-width: 768px) {
+            #toolbar { -webkit-overflow-scrolling: touch; }
+            input[type=range] { height: 12px !important; }
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen bg-gray-900 text-gray-200 font-sans">
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-[3000] flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Header Responsivo -->
+    <header class="bg-gray-800 border-b border-gray-700 flex flex-col md:flex-row items-center px-4 py-2 md:h-12 md:py-0 justify-between select-none z-20 gap-2 md:gap-0">
+        <div class="flex items-center w-full md:w-auto justify-between md:justify-start md:space-x-4">
+            <div class="flex items-center font-bold text-blue-400 text-lg mr-2 md:mr-4">
+                <i data-lucide="palette" class="w-6 h-6 mr-2"></i><span class="hidden sm:inline">FotoStudio Max</span><span class="sm:hidden">FS Max</span>
+            </div>
+            
+            <div class="flex items-center gap-2 overflow-x-auto scrollbar-hide" id="top-actions" style="touch-action: pan-x;">
+                <label class="cursor-pointer hover:text-white hover:bg-gray-700 px-2 py-1 rounded text-sm transition flex items-center gap-1 md:gap-2 whitespace-nowrap">
+                    <i data-lucide="upload" size="14"></i> <span class="hidden sm:inline">Imagen</span>
+                    <input type="file" id="file-upload" class="hidden" accept="image/*">
+                </label>
+                <button id="btn-download" class="hover:text-white hover:bg-gray-700 px-2 py-1 rounded text-sm transition flex items-center gap-1 md:gap-2 whitespace-nowrap">
+                    <i data-lucide="download" size="14"></i> <span class="hidden sm:inline">PNG</span>
+                </button>
+                <div class="w-px h-4 bg-gray-600 mx-1 md:mx-2"></div>
+                <label class="cursor-pointer hover:text-green-400 hover:bg-gray-700 px-2 py-1 rounded text-sm transition flex items-center gap-1 md:gap-2 whitespace-nowrap">
+                    <i data-lucide="file-json" size="14"></i> <span class="hidden sm:inline">Figuras</span>
+                    <input type="file" id="file-import-shape" class="hidden" accept=".json">
+                </label>
+                <!-- Nueva opción de importar capa -->
+                <label class="cursor-pointer hover:text-purple-400 hover:bg-gray-700 px-2 py-1 rounded text-sm transition flex items-center gap-1 md:gap-2 whitespace-nowrap">
+                    <i data-lucide="layers" size="14"></i> <span class="hidden sm:inline">Capa</span>
+                    <input type="file" id="file-import-layer" class="hidden" accept=".json">
+                </label>
+            </div>
+        </div>
+        
+        <div class="flex items-center w-full md:w-auto justify-end space-x-2 hidden md:flex">
+            <button id="btn-undo" class="p-1.5 hover:bg-gray-700 rounded opacity-50 cursor-not-allowed"><i data-lucide="undo" size="18"></i></button>
+            <button id="btn-redo" class="p-1.5 hover:bg-gray-700 rounded opacity-50 cursor-not-allowed"><i data-lucide="redo" size="18"></i></button>
+        </div>
+    </header>
+
+    <!-- Contenedor Principal Adaptable (Columna en móvil, Fila en Desktop) -->
+    <div class="flex flex-1 overflow-hidden flex-col md:flex-row">
+        
+        <!-- Toolbar Responsiva -->
+        <aside class="bg-gray-800 border-b md:border-b-0 md:border-r border-gray-700 flex flex-row md:flex-col items-center p-2 md:py-4 md:space-y-2 overflow-x-auto md:overflow-x-hidden md:overflow-y-auto z-20 shadow-lg scrollbar-hide w-full md:w-16 shrink-0 h-14 md:h-auto" id="toolbar">
+            <!-- Tools injected via JS -->
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="flex-1 bg-gray-900 relative overflow-auto flex items-center justify-center p-4 md:p-8" id="main-area">
+            <div id="canvas-container" class="relative shadow-2xl border border-gray-700 bg-gray-800 cursor-crosshair overflow-hidden origin-top-left transition-all duration-100 ease-linear">
+                <!-- Background Pattern -->
+                <div id="canvas-bg" class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: linear-gradient(45deg, #4b5563 25%, transparent 25%), linear-gradient(-45deg, #4b5563 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #4b5563 75%), linear-gradient(-45deg, transparent 75%, #4b5563 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px;"></div>
+               
+                <!-- Stage for Layers -->
+                <div id="layer-stage" class="absolute inset-0 w-full h-full"></div>
+
+                <!-- Overlay for SVG Previews / Vectors -->
+                <svg id="svg-overlay" class="absolute inset-0 pointer-events-none z-[600] w-full h-full" viewBox="0 0 800 600" preserveAspectRatio="none"></svg>
+
+                <!-- Handles Overlay -->
+                <div id="selection-overlay" class="hidden absolute border-2 border-blue-500 pointer-events-none z-[2000]" style="box-sizing: border-box;">
+                    <!-- Rotation Handle -->
+                    <div class="absolute -top-[30px] left-1/2 w-px h-[30px] bg-blue-500 -translate-x-1/2"></div>
+                    <div id="handle-rot" class="absolute -top-[38px] left-1/2 w-4 h-4 bg-white border-2 border-blue-500 rounded-full -translate-x-1/2 cursor-grab pointer-events-auto flex items-center justify-center hover:scale-125 transition-transform">
+                        <i data-lucide="rotate-cw" class="w-2.5 h-2.5 text-blue-600"></i>
+                    </div>
+                    <!-- Resize Handles -->
+                    <div id="handle-nw" class="absolute w-2.5 h-2.5 bg-blue-500 border-2 border-white rounded-full pointer-events-auto cursor-nw-resize touch-manipulation hover:scale-150 transition-transform" style="top: -5px; left: -5px;"></div>
+                    <div id="handle-ne" class="absolute w-2.5 h-2.5 bg-blue-500 border-2 border-white rounded-full pointer-events-auto cursor-ne-resize touch-manipulation hover:scale-150 transition-transform" style="top: -5px; right: -5px;"></div>
+                    <div id="handle-sw" class="absolute w-2.5 h-2.5 bg-blue-500 border-2 border-white rounded-full pointer-events-auto cursor-sw-resize touch-manipulation hover:scale-150 transition-transform" style="bottom: -5px; left: -5px;"></div>
+                    <div id="handle-se" class="absolute w-2.5 h-2.5 bg-blue-500 border-2 border-white rounded-full pointer-events-auto cursor-se-resize touch-manipulation hover:scale-150 transition-transform" style="bottom: -5px; right: -5px;"></div>
+                    <div id="handle-n" class="absolute w-2.5 h-2.5 bg-blue-500 border-2 border-white rounded-full pointer-events-auto cursor-n-resize touch-manipulation hover:scale-150 transition-transform" style="top: -5px; left: 50%; transform: translateX(-50%);"></div>
+                    <div id="handle-s" class="absolute w-2.5 h-2.5 bg-blue-500 border-2 border-white rounded-full pointer-events-auto cursor-s-resize touch-manipulation hover:scale-150 transition-transform" style="bottom: -5px; left: 50%; transform: translateX(-50%);"></div>
+                    <div id="handle-e" class="absolute w-2.5 h-2.5 bg-blue-500 border-2 border-white rounded-full pointer-events-auto cursor-e-resize touch-manipulation hover:scale-150 transition-transform" style="right: -5px; top: 50%; transform: translateY(-50%);"></div>
+                    <div id="handle-w" class="absolute w-2.5 h-2.5 bg-blue-500 border-2 border-white rounded-full pointer-events-auto cursor-w-resize touch-manipulation hover:scale-150 transition-transform" style="left: -5px; top: 50%; transform: translateY(-50%);"></div>
+                </div>
+
+                <!-- Text Input Overlay -->
+                <div id="text-input-container" class="hidden absolute z-[2000]" style="transform-origin: top left;">
+                     <div class="flex gap-1 absolute -top-8 left-0 bg-gray-800 p-1 rounded shadow-lg border border-gray-600">
+                        <button id="btn-text-check" class="text-green-400 hover:text-green-300"><i data-lucide="check" size="16"></i></button>
+                        <button id="btn-text-cancel" class="text-red-400 hover:text-red-300"><i data-lucide="x" size="16"></i></button>
+                    </div>
+                    <textarea id="text-tool-input" class="bg-transparent border border-dashed border-gray-500 outline-none p-1 m-0 min-w-[150px] overflow-hidden resize-none leading-tight" placeholder="Escribe aquí..." rows="1" autocomplete="off" style="white-space: pre-wrap; font-family: Arial;"></textarea>
+                </div>
+            </div>
+
+            <!-- Floating Info Panel -->
+            <div id="info-panel" class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 px-4 md:px-6 py-2 rounded-full shadow-xl flex items-center gap-2 md:gap-4 border border-gray-600 z-30 max-w-[90vw] overflow-x-auto whitespace-nowrap scrollbar-hide">
+                <!-- Content injected by JS -->
+            </div>
+            
+            <!-- Botones Undo/Redo Flotantes para Móvil -->
+            <div class="absolute bottom-4 left-4 flex gap-2 md:hidden z-30">
+                 <button id="btn-undo-mobile" class="p-2 bg-gray-800 border border-gray-600 rounded-full shadow-lg hover:bg-gray-700 opacity-80"><i data-lucide="undo" size="20"></i></button>
+                 <button id="btn-redo-mobile" class="p-2 bg-gray-800 border border-gray-600 rounded-full shadow-lg hover:bg-gray-700 opacity-80"><i data-lucide="redo" size="20"></i></button>
+            </div>
+        </main>
+
+        <!-- Right Sidebar (Layers & Options) -->
+        <aside class="bg-gray-800 border-t md:border-t-0 md:border-l border-gray-700 flex flex-col z-20 shadow-lg w-full md:w-72 h-64 md:h-auto shrink-0">
+            <!-- Options Panel (Dynamic Content) -->
+            <div class="p-3 md:p-4 border-b border-gray-700 max-h-[140px] md:max-h-none overflow-y-auto" id="layer-options-container">
+                <h3 class="text-xs font-bold text-gray-500 uppercase mb-2 md:mb-3 flex items-center gap-2"><i data-lucide="sliders-horizontal" size="14"></i> Opciones</h3>
+                <div id="layer-options-panel" class="space-y-2 md:space-y-3">
+                    <!-- Content injected by JS based on selected layer type -->
+                </div>
+            </div>
+
+            <!-- Layers Panel -->
+            <div class="flex-1 flex flex-col min-h-0">
+                <div class="p-2 md:p-3 bg-gray-850 border-b border-gray-700">
+                    <div class="flex justify-between items-center mb-1 md:mb-2">
+                        <h3 class="text-xs font-bold text-gray-500 uppercase flex items-center gap-2"><i data-lucide="layers" size="14"></i> Capas</h3>
+                        <button id="btn-add-layer" class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded flex items-center gap-1 transition"><i data-lucide="plus" size="12"></i> Nueva</button>
+                    </div>
+                    <!-- Layer Properties -->
+                    <div class="bg-gray-800 p-1 md:p-2 rounded border border-gray-700 mb-1 md:mb-2">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-[10px] text-gray-400 uppercase font-bold">Modo</span>
+                            <select id="layer-blend-mode" class="bg-gray-900 text-white text-xs border border-gray-600 rounded px-1 py-0.5 outline-none focus:border-blue-500">
+                                <option value="normal">Normal</option>
+                                <option value="multiply">Multiplicar</option>
+                                <option value="screen">Trama</option>
+                                <option value="overlay">Superponer</option>
+                                <option value="darken">Oscurecer</option>
+                                <option value="lighten">Aclarar</option>
+                                <option value="difference">Diferencia</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-gray-400 uppercase font-bold">Opacidad</span>
+                            <input type="range" id="layer-opacity" min="0" max="100" value="100" class="flex-1 h-1.5 bg-gray-600 rounded-lg accent-blue-500 cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+                <!-- Layer List -->
+                <div id="layer-list" class="flex-1 overflow-y-auto p-2 space-y-1 bg-gray-900/50">
+                    <!-- Items injected by JS -->
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- MAIN SCRIPT -->
+    <script>
+        // --- TOAST NOTIFICATION SYSTEM ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            // Colors based on type
+            let bgClass = 'bg-gray-800';
+            let icon = 'info';
+            let textColor = 'text-white';
+            
+            if (type === 'success') { bgClass = 'bg-green-900/90 border-green-500'; icon = 'check-circle'; textColor = 'text-green-100'; }
+            else if (type === 'error') { bgClass = 'bg-red-900/90 border-red-500'; icon = 'alert-circle'; textColor = 'text-red-100'; }
+            else if (type === 'warning') { bgClass = 'bg-orange-900/90 border-orange-500'; icon = 'alert-triangle'; textColor = 'text-orange-100'; }
+            else { bgClass = 'bg-gray-800/90 border-gray-600'; icon = 'info'; textColor = 'text-gray-100'; }
+
+            toast.className = `${bgClass} ${textColor} px-4 py-2 rounded-lg shadow-xl border flex items-center gap-2 min-w-[200px] backdrop-blur-sm toast-enter`;
+            toast.innerHTML = `<i data-lucide="${icon}" width="18" height="18"></i> <span class="text-sm font-medium">${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            // Animation Entry
+            requestAnimationFrame(() => {
+                toast.classList.remove('toast-enter');
+                toast.classList.add('toast-enter-active');
+            });
+
+            // Auto Remove
+            setTimeout(() => {
+                toast.classList.remove('toast-enter-active');
+                toast.classList.add('toast-exit-active');
+                setTimeout(() => {
+                    if (toast.parentNode) toast.parentNode.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+
+        // --- GLOBAL STATE ---
+        const state = {
+            layers: [],
+            activeLayerId: null,
+            isDrawing: false,
+            tool: 'brush',
+            color: '#000000',
+            brushSize: 5,
+            tolerance: 30,
+            wandContiguous: true,
+            zoom: 1,
+            startPos: { x: 0, y: 0 },
+            endPos: { x: 0, y: 0 },
+            mousePos: { x: 0, y: 0 },
+            clearConfirm: false,
+            lastDrawPos: { x: 0, y: 0 },
+            
+            // Text Editing
+            editingLayerId: null,
+
+            // Eraser Settings
+            eraserOpacity: 100,
+            eraserShape: 'round',
+
+            // Brush Settings
+            brushOpacity: 100,
+            brushType: 'round', // 'round', 'square', 'pen', 'spray'
+
+            cropPoints: [],
+            customShapePoints: [],
+            customShapeName: "Mi Figura",
+            customShapesLibrary: [],
+            
+            // Text
+            fontFamily: 'Arial',
+            fontSize: 24,
+            textInput: '',
+            typingPos: null,
+            
+            // Transform & Select
+            selectedId: null,
+            selectedType: null,
+            isDragging: false,
+            isResizing: false,
+            isRotating: false,
+            resizeHandle: null,
+            dragStart: { x: 0, y: 0 },
+            previewShape: null,
+            initialAngle: 0,
+            lastMouseAngle: 0, 
+            
+            // Grouping
+            selectionBox: null,
+            
+            // History
+            history: [],
+            historyStep: -1
+        };
+
+        const fontOptions = ['Arial', 'Verdana', 'Times New Roman', 'Courier New', 'Georgia', 'Trebuchet MS', 'Comic Sans MS', 'Impact', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Oswald', 'Raleway', 'Merriweather', 'Playfair Display'];
+
+        // --- INITIALIZATION ---
+        window.addEventListener('DOMContentLoaded', () => {
+            initApp();
+            renderTools();
+            lucide.createIcons();
+            
+            const container = document.getElementById('canvas-container');
+            container.addEventListener('mousedown', handleMouseDown);
+            container.addEventListener('touchstart', handleTouchStart, {passive: false});
+            container.addEventListener('dblclick', handleDoubleClick); // Double click to edit text
+            
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('touchmove', handleTouchMove, {passive: false});
+            
+            window.addEventListener('mouseup', handleMouseUp);
+            window.addEventListener('touchend', handleTouchEnd, {passive: false}); 
+            
+            container.addEventListener('wheel', handleWheel, { passive: false });
+            window.addEventListener('paste', handlePaste);
+
+            // Bind UI Events
+            document.getElementById('btn-download').onclick = downloadImage;
+            document.getElementById('btn-add-layer').onclick = addLayer;
+            document.getElementById('file-upload').onchange = handleImageUpload;
+            
+            document.getElementById('btn-undo').onclick = handleUndo;
+            document.getElementById('btn-redo').onclick = handleRedo;
+            document.getElementById('btn-undo-mobile').onclick = handleUndo;
+            document.getElementById('btn-redo-mobile').onclick = handleRedo;
+
+            document.getElementById('layer-blend-mode').onchange = (e) => updateLayer(state.activeLayerId, { blendMode: e.target.value });
+            document.getElementById('layer-opacity').oninput = (e) => updateLayer(state.activeLayerId, { opacity: parseInt(e.target.value) });
+            document.getElementById('layer-opacity').onmouseup = saveHistoryDebounced;
+            document.getElementById('layer-opacity').ontouchend = saveHistoryDebounced;
+            
+            const textInput = document.getElementById('text-tool-input');
+            textInput.onkeydown = (e) => {
+                if(e.key === 'Escape') cancelText();
+                // Auto-grow
+                setTimeout(() => {
+                    textInput.style.height = 'auto';
+                    textInput.style.height = textInput.scrollHeight + 'px';
+                }, 0);
+            };
+            textInput.oninput = (e) => {
+                 textInput.style.height = 'auto';
+                 textInput.style.height = textInput.scrollHeight + 'px';
+                 state.textInput = textInput.value;
+            };
+
+            document.getElementById('btn-text-check').onclick = applyText;
+            document.getElementById('btn-text-cancel').onclick = cancelText;
+            document.getElementById('file-import-shape').onchange = importCustomShape;
+            document.getElementById('file-import-layer').onchange = handleLayerImport;
+            
+            // Initial notification
+            showToast('¡Bienvenido a FotoStudio Max!', 'info');
+        });
+
+        // --- TOUCH ADAPTERS ---
+        function handleTouchStart(e) {
+            if (e.target.closest('#layer-list') || e.target.closest('#layer-options-panel')) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            const target = document.elementFromPoint(touch.clientX, touch.clientY);
+            const mockEvent = { clientX: touch.clientX, clientY: touch.clientY, target: target || e.target, preventDefault: () => {} };
+            handleMouseDown(mockEvent);
+        }
+
+        function handleTouchMove(e) {
+            if (e.target.closest('#layer-list') || e.target.closest('#layer-options-panel')) return;
+            if(!state.isDrawing && !state.isDragging && !state.isResizing && !state.isRotating && state.tool !== 'crop-poly' && state.tool !== 'create-shape') return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mockEvent = { clientX: touch.clientX, clientY: touch.clientY, target: e.target, preventDefault: () => {} };
+            handleMouseMove(mockEvent);
+        }
+
+        function handleTouchEnd(e) {
+            if (e.target.closest('#layer-list') || e.target.closest('#layer-options-panel')) return;
+            e.preventDefault();
+            const touch = e.changedTouches[0];
+            const mockEvent = { clientX: touch.clientX, clientY: touch.clientY, target: e.target, preventDefault: () => {} };
+            handleMouseUp(mockEvent);
+        }
+
+        function initApp() {
+            const bgCanvas = document.createElement('canvas');
+            bgCanvas.width = 800; bgCanvas.height = 600;
+            const ctx = bgCanvas.getContext('2d');
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 800, 600);
+
+            const bgLayer = {
+                id: 'layer-bg', name: 'Fondo', visible: true, opacity: 100, blendMode: 'normal',
+                canvas: bgCanvas, position: { x: 0, y: 0, width: 800, height: 600, rotation: 0 }, type: 'canvas'
+            };
+            
+            state.layers = [bgLayer];
+            state.activeLayerId = 'layer-bg';
+            
+            // Auto-zoom for mobile
+            if (window.innerWidth < 820) {
+                state.zoom = (window.innerWidth - 32) / 800;
+            }
+
+            updateCanvasDOM();
+            renderLayerList();
+            renderLayerOptionsPanel();
+            updateInfoPanel();
+            saveHistory(); // Initial state
+        }
+
+        // --- RENDERING ---
+        function renderTools() {
+            const tools = [
+                { id: 'select', icon: 'mouse-pointer-2', tip: 'Seleccionar (V)' },
+                { sep: true },
+                { id: 'brush', icon: 'pencil', tip: 'Pincel (B)' },
+                { id: 'eraser', icon: 'eraser', tip: 'Borrador (E)' },
+                { id: 'fill', icon: 'paint-bucket', tip: 'Relleno (G)' },
+                { sep: true },
+                { id: 'text', icon: 'type', tip: 'Texto (T)' },
+                { id: 'crop-poly', icon: 'scissors', tip: 'Recorte Poligonal (C)' },
+                { id: 'wand', icon: 'wand-2', tip: 'Varita Mágica (W)' },
+                { sep: true },
+                { id: 'line', icon: 'minus', tip: 'Línea' },
+                { id: 'rect', icon: 'square', tip: 'Rectángulo' },
+                { id: 'circle', icon: 'circle', tip: 'Círculo' },
+                { id: 'triangle', icon: 'triangle', tip: 'Triángulo' },
+                { id: 'star', icon: 'star', tip: 'Estrella' },
+                { sep: true },
+                { id: 'group-select', icon: 'box-select', tip: 'Agrupar Selección' },
+                { sep: true },
+                { id: 'create-shape', icon: 'pentagon', tip: 'Crear Figura' }
+            ];
+
+            const toolbar = document.getElementById('toolbar');
+            toolbar.innerHTML = '';
+            
+            tools.forEach(t => {
+                if (t.sep) {
+                    const div = document.createElement('div');
+                    div.className = "w-px h-6 mx-1 bg-gray-700 md:w-8 md:h-px md:mx-0 md:my-1 shrink-0";
+                    toolbar.appendChild(div);
+                    return;
+                }
+                const btn = document.createElement('button');
+                btn.className = `p-3 rounded-xl transition-all duration-200 relative group shrink-0 mr-1 md:mr-0 md:mb-1 ${state.tool === t.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50 ring-1 ring-blue-400' : 'text-gray-400 hover:bg-gray-700 hover:text-white'}`;
+                btn.onclick = () => setTool(t.id);
+                btn.title = t.tip;
+                btn.innerHTML = `<i data-lucide="${t.icon}" width="18" height="18"></i>`;
+                toolbar.appendChild(btn);
+            });
+
+            // Custom Shapes
+            state.customShapesLibrary.forEach((shape, i) => {
+                const btn = document.createElement('button');
+                const id = `custom-shape-${i}`;
+                btn.className = `p-3 rounded-xl transition-all duration-200 relative group shrink-0 mr-1 md:mr-0 md:mb-1 ${state.tool === id ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700 hover:text-white'}`;
+                btn.onclick = () => setTool(id);
+                btn.innerHTML = `<span class="text-[10px] font-bold">${shape.name.substring(0,2).toUpperCase()}</span>`;
+                btn.title = shape.name;
+                toolbar.appendChild(btn);
+            });
+
+            const spacer = document.createElement('div');
+            spacer.className = "flex-1 w-full";
+            toolbar.appendChild(spacer);
+
+            const colorWrapper = document.createElement('div');
+            colorWrapper.className = "flex flex-col items-center gap-2 mb-0 md:mb-4 mr-2 md:mr-0 shrink-0";
+            
+            const colorCircle = document.createElement('div');
+            colorCircle.className = "w-8 h-8 rounded-full border-2 border-gray-500 overflow-hidden relative shadow-sm cursor-pointer hover:border-white transition-colors";
+            colorCircle.style.backgroundColor = state.color;
+            
+            const colorInput = document.createElement('input');
+            colorInput.type = 'color';
+            colorInput.value = state.color;
+            colorInput.className = "opacity-0 w-full h-full cursor-pointer absolute top-0 left-0";
+            
+            colorInput.oninput = (e) => { 
+                state.color = e.target.value; 
+                colorCircle.style.backgroundColor = state.color;
+                if(state.typingPos) document.getElementById('text-tool-input').style.color = state.color;
+                // Live update selected text color
+                if(state.selectedId && state.selectedType === 'text') {
+                    const l = state.layers.find(la => la.id === state.selectedId);
+                    if(l && l.textData) {
+                        l.textData.color = state.color;
+                        renderTextLayerContent(l);
+                        updateCanvasDOM();
+                    }
+                }
+            };
+            
+            colorCircle.appendChild(colorInput);
+            colorWrapper.appendChild(colorCircle);
+            toolbar.appendChild(colorWrapper);
+            
+            lucide.createIcons();
+        }
+
+        function renderLayerList() {
+            const list = document.getElementById('layer-list');
+            list.innerHTML = '';
+            
+            [...state.layers].reverse().forEach((layer, reverseIndex) => {
+                const index = state.layers.length - 1 - reverseIndex;
+                const item = document.createElement('div');
+                const isActive = state.activeLayerId === layer.id;
+            
+                item.className = `group flex items-center gap-2 p-2 rounded cursor-pointer transition border ${isActive ? 'bg-blue-900/40 border-blue-500/50' : 'hover:bg-gray-700 border-transparent'}`;
+                item.onclick = () => { setActiveLayerId(layer.id); };
+            
+                const visBtn = document.createElement('button');
+                visBtn.className = "text-gray-400 hover:text-white p-0.5";
+                visBtn.innerHTML = `<i data-lucide="${layer.visible ? 'eye' : 'eye-off'}" width="12" height="12"></i>`;
+                visBtn.onclick = (e) => { e.stopPropagation(); toggleVisibility(layer.id); };
+                item.appendChild(visBtn);
+            
+                const iconDiv = document.createElement('div');
+                iconDiv.className = "w-8 h-8 bg-gray-700 rounded border border-gray-600 flex items-center justify-center shrink-0";
+                iconDiv.innerHTML = `<i data-lucide="${layer.type === 'text' ? 'type' : 'image'}" width="12" height="12" class="text-gray-500"></i>`;
+                item.appendChild(iconDiv);
+            
+                const nameDiv = document.createElement('div');
+                nameDiv.className = "flex-1 min-w-0";
+                nameDiv.innerHTML = `<div class="text-sm font-medium truncate ${isActive ? 'text-white' : 'text-gray-400'}">${layer.name}</div>`;
+                item.appendChild(nameDiv);
+            
+                const arrowsDiv = document.createElement('div');
+                arrowsDiv.className = "flex flex-col gap-1 mr-1";
+                const upBtn = document.createElement('button');
+                upBtn.innerHTML = `<i data-lucide="chevron-up" width="10" height="10"></i>`;
+                upBtn.className = "text-gray-500 hover:text-blue-400 disabled:opacity-30";
+                upBtn.disabled = index === state.layers.length - 1;
+                upBtn.onclick = (e) => { e.stopPropagation(); moveLayer(index, 1); };
+            
+                const downBtn = document.createElement('button');
+                downBtn.innerHTML = `<i data-lucide="chevron-down" width="10" height="10"></i>`;
+                downBtn.className = "text-gray-500 hover:text-blue-400 disabled:opacity-30";
+                downBtn.disabled = index === 0;
+                downBtn.onclick = (e) => { e.stopPropagation(); moveLayer(index, -1); };
+            
+                arrowsDiv.appendChild(upBtn);
+                arrowsDiv.appendChild(downBtn);
+                item.appendChild(arrowsDiv);
+
+                const dupBtn = document.createElement('button');
+                dupBtn.className = "text-gray-500 hover:text-green-400 mr-1";
+                dupBtn.innerHTML = `<i data-lucide="copy" width="14" height="14"></i>`;
+                dupBtn.onclick = (e) => { e.stopPropagation(); duplicateLayer(layer.id); };
+                item.appendChild(dupBtn);
+
+                const delBtn = document.createElement('button');
+                delBtn.className = "text-gray-500 hover:text-red-400";
+                delBtn.innerHTML = `<i data-lucide="trash-2" width="14" height="14"></i>`;
+                delBtn.onclick = (e) => { e.stopPropagation(); deleteLayer(layer.id); };
+                item.appendChild(delBtn);
+
+                list.appendChild(item);
+            });
+            lucide.createIcons();
+            
+            const activeLayer = getActiveLayer();
+            if(activeLayer) {
+                document.getElementById('layer-blend-mode').value = activeLayer.blendMode;
+                document.getElementById('layer-opacity').value = activeLayer.opacity;
+            }
+        }
+
+        function renderLayerOptionsPanel() {
+            const panel = document.getElementById('layer-options-panel');
+            const layer = getActiveLayer();
+
+            if (!layer) {
+                panel.innerHTML = '<p class="text-xs text-gray-500">Ninguna capa seleccionada.</p>';
+                return;
+            }
+
+            if (layer.type === 'image' || layer.type === 'merged') {
+                panel.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex gap-2">
+                            <button id="btn-toggle-grayscale" class="flex-1 px-2 py-1.5 rounded text-xs font-medium transition border ${layer.filters.grayscale ? 'bg-blue-600 text-white border-blue-500' : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'}">B&N</button>
+                            <button id="btn-toggle-sepia" class="flex-1 px-2 py-1.5 rounded text-xs font-medium transition border ${layer.filters.sepia ? 'bg-orange-600 text-white border-orange-500' : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'}">Sepia</button>
+                            <button id="btn-toggle-invert" class="flex-1 px-2 py-1.5 rounded text-xs font-medium transition border ${layer.filters.invert ? 'bg-purple-600 text-white border-purple-500' : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'}">Invertir</button>
+                        </div>
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs text-gray-400"><span>Brillo</span><span id="brightness-val">${layer.filters.brightness > 0 ? '+' : ''}${layer.filters.brightness}</span></div>
+                            <input type="range" id="input-brightness" min="-100" max="100" value="${layer.filters.brightness}" class="w-full h-1.5 bg-gray-600 rounded-lg accent-blue-500 cursor-pointer">
+                        </div>
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs text-gray-400"><span>Contraste</span><span id="contrast-val">${layer.filters.contrast > 0 ? '+' : ''}${layer.filters.contrast}</span></div>
+                            <input type="range" id="input-contrast" min="-100" max="100" value="${layer.filters.contrast}" class="w-full h-1.5 bg-gray-600 rounded-lg accent-blue-500 cursor-pointer">
+                        </div>
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs text-gray-400"><span>Blur</span><span id="blur-val">${layer.filters.blur || 0}px</span></div>
+                            <input type="range" id="input-blur" min="0" max="20" value="${layer.filters.blur || 0}" class="w-full h-1.5 bg-gray-600 rounded-lg accent-blue-500 cursor-pointer">
+                        </div>
+                         <div class="grid grid-cols-2 gap-2 mt-2">
+                            <button id="btn-export-layer" class="px-3 py-2 rounded text-sm font-medium transition flex items-center justify-center gap-1 bg-purple-900/20 text-purple-400 border border-purple-900/50 w-full"><i data-lucide="download" width="14"></i> Guardar Capa (JSON)</button>
+                            <button id="btn-clear-layer" class="px-3 py-2 rounded text-sm font-medium transition flex items-center justify-center gap-1 bg-red-900/20 text-red-400 border border-red-900/50 w-full">Limpiar</button>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('btn-toggle-grayscale').onclick = () => { layer.filters.grayscale = !layer.filters.grayscale; applyLayerFilters(layer); renderLayerOptionsPanel(); };
+                document.getElementById('btn-toggle-sepia').onclick = () => { layer.filters.sepia = !layer.filters.sepia; applyLayerFilters(layer); renderLayerOptionsPanel(); };
+                document.getElementById('btn-toggle-invert').onclick = () => { layer.filters.invert = !layer.filters.invert; applyLayerFilters(layer); renderLayerOptionsPanel(); };
+                document.getElementById('btn-export-layer').onclick = exportActiveLayer;
+                
+                const brightInput = document.getElementById('input-brightness');
+                brightInput.oninput = (e) => { document.getElementById('brightness-val').innerText = (e.target.value > 0 ? '+' : '') + e.target.value; };
+                brightInput.onchange = (e) => { layer.filters.brightness = parseInt(e.target.value); applyLayerFilters(layer); };
+                brightInput.ontouchend = brightInput.onchange;
+
+                const contrastInput = document.getElementById('input-contrast');
+                contrastInput.oninput = (e) => { document.getElementById('contrast-val').innerText = (e.target.value > 0 ? '+' : '') + e.target.value; };
+                contrastInput.onchange = (e) => { layer.filters.contrast = parseInt(e.target.value); applyLayerFilters(layer); };
+                contrastInput.ontouchend = contrastInput.onchange;
+
+                const blurInput = document.getElementById('input-blur');
+                blurInput.oninput = (e) => { document.getElementById('blur-val').innerText = e.target.value + 'px'; };
+                blurInput.onchange = (e) => { layer.filters.blur = parseInt(e.target.value); applyLayerFilters(layer); };
+                blurInput.ontouchend = blurInput.onchange;
+
+            } else {
+                panel.innerHTML = `<div class="grid grid-cols-2 gap-2"><button id="btn-clear-layer" class="px-3 py-2 rounded text-sm font-medium transition flex items-center justify-center gap-1 bg-red-900/20 text-red-400 border border-red-900/50">Limpiar Capa</button></div>`;
+            }
+            const clearBtn = document.getElementById('btn-clear-layer');
+            if(clearBtn) clearBtn.onclick = clearActiveLayer;
+            lucide.createIcons();
+        }
+
+        // --- CORE FUNCTIONS ---
+        function setTool(t) {
+            state.tool = t;
+            if(t === 'crop-poly') state.cropPoints = [];
+            if(t === 'create-shape') state.customShapePoints = [];
+            state.selectionBox = null;
+            state.isDrawing = false;
+            renderTools();
+            updateInfoPanel();
+            updateOverlay();
+            showToast(`Herramienta: ${t}`, 'info');
+        }
+
+        function setActiveLayerId(id) {
+            state.activeLayerId = id;
+            renderLayerList();
+            renderLayerOptionsPanel();
+            updateInfoPanel();
+        }
+
+        function getActiveLayer() { return state.layers.find(l => l.id === state.activeLayerId); }
+
+        function getMousePos(e) {
+            const container = document.getElementById('canvas-container');
+            const rect = container.getBoundingClientRect();
+            return { x: (e.clientX - rect.left) / state.zoom, y: (e.clientY - rect.top) / state.zoom };
+        }
+
+        function toLocalCoords(globalX, globalY, layer) {
+             if (!layer || !layer.position) return { x: globalX, y: globalY };
+             return { x: globalX - layer.position.x, y: globalY - layer.position.y };
+        }
+
+        function updateCanvasDOM() {
+            const stage = document.getElementById('layer-stage');
+            const container = document.getElementById('canvas-container');
+            
+            container.style.width = (800 * state.zoom) + 'px';
+            container.style.height = (600 * state.zoom) + 'px';
+            container.style.minWidth = (800 * state.zoom) + 'px';
+            container.style.minHeight = (600 * state.zoom) + 'px';
+
+            stage.innerHTML = '';
+            state.layers.forEach((layer, index) => {
+                const cvs = layer.canvas;
+                cvs.className = "absolute pointer-events-none";
+                cvs.style.left = (layer.position.x * state.zoom) + 'px';
+                cvs.style.top = (layer.position.y * state.zoom) + 'px';
+                cvs.style.width = (layer.position.width * state.zoom) + 'px';
+                cvs.style.height = (layer.position.height * state.zoom) + 'px';
+                cvs.style.opacity = layer.visible ? (layer.opacity / 100) : 0;
+                cvs.style.zIndex = index;
+                cvs.style.mixBlendMode = layer.blendMode;
+                cvs.style.transform = `rotate(${layer.position.rotation || 0}deg)`;
+                cvs.style.transformOrigin = 'center center';
+                stage.appendChild(cvs);
+            });
+            updateOverlay();
+        }
+
+        // --- LAYER LOGIC ---
+        function addLayer() {
+            const newId = `layer-${Date.now()}`;
+            const cvs = document.createElement('canvas'); cvs.width = 800; cvs.height = 600;
+            const l = { id: newId, name: `Capa ${state.layers.length + 1}`, visible: true, opacity: 100, blendMode: 'normal', canvas: cvs, position: {x:0, y:0, width:800, height:600, rotation: 0}, type: 'canvas' };
+            state.layers = [...state.layers, l];
+            state.activeLayerId = newId;
+            updateCanvasDOM(); renderLayerList(); saveHistory();
+            showToast('Capa añadida', 'success');
+        }
+
+        function duplicateLayer(id) {
+            const original = state.layers.find(l => l.id === id);
+            if(!original) return;
+            const newCanvas = document.createElement('canvas');
+            newCanvas.width = original.canvas.width; newCanvas.height = original.canvas.height;
+            newCanvas.getContext('2d').drawImage(original.canvas, 0, 0);
+
+            let newOriginalCanvas = null;
+            if(original.originalCanvas) {
+                newOriginalCanvas = document.createElement('canvas');
+                newOriginalCanvas.width = original.originalCanvas.width; newOriginalCanvas.height = original.originalCanvas.height;
+                newOriginalCanvas.getContext('2d').drawImage(original.originalCanvas, 0, 0);
+            }
+
+            const newLayer = {
+                ...original, id: `layer-${Date.now()}`, name: original.name + ' (Copia)', canvas: newCanvas, originalCanvas: newOriginalCanvas,
+                position: { ...original.position, x: original.position.x + 20, y: original.position.y + 20 },
+                textData: original.textData ? { ...original.textData } : null, filters: original.filters ? { ...original.filters } : null
+            };
+            const index = state.layers.findIndex(l => l.id === id);
+            state.layers.splice(index + 1, 0, newLayer);
+            setActiveLayerId(newLayer.id); updateCanvasDOM(); renderLayerList(); saveHistory();
+            showToast('Capa duplicada', 'success');
+        }
+
+        function deleteLayer(id) {
+            if (state.layers.length <= 1) { showToast('No puedes borrar la última capa', 'error'); return; }
+            state.layers = state.layers.filter(l => l.id !== id);
+            if(state.activeLayerId === id) state.activeLayerId = state.layers[0].id;
+            updateCanvasDOM(); renderLayerList(); updateInfoPanel(); saveHistory();
+        }
+
+        function clearActiveLayer() {
+            if(!state.clearConfirm) {
+                state.clearConfirm = true;
+                const btn = document.getElementById('btn-clear-layer');
+                btn.innerText = "¿Confirmar?";
+                btn.classList.add('animate-pulse', 'bg-red-600', 'text-white');
+                setTimeout(() => {
+                    state.clearConfirm = false;
+                    btn.innerText = "Limpiar Capa";
+                    btn.classList.remove('animate-pulse', 'bg-red-600', 'text-white');
+                }, 2000);
+                return;
+            }
+            const layer = getActiveLayer();
+            if(layer && layer.canvas) {
+                const ctx = layer.canvas.getContext('2d');
+                ctx.clearRect(0,0, layer.canvas.width, layer.canvas.height);
+                if(layer.id === 'layer-bg') { ctx.fillStyle='#ffffff'; ctx.fillRect(0,0, layer.canvas.width, layer.canvas.height); }
+                updateCanvasDOM(); saveHistory();
+                state.clearConfirm = false;
+                document.getElementById('btn-clear-layer').innerText = "Limpiar Capa";
+                showToast('Capa limpiada', 'success');
+            }
+        }
+
+        // --- FILTERS ---
+        function applyLayerFilters(layer) {
+            if (!layer || (layer.type !== 'image' && layer.type !== 'merged') || !layer.originalCanvas) return;
+            const ctx = layer.canvas.getContext('2d');
+            const w = layer.canvas.width; const h = layer.canvas.height;
+            
+            // Blur Logic (Apply filter BEFORE getting image data for pixel manipulation if using CSS/Canvas filters)
+            ctx.clearRect(0, 0, w, h);
+            ctx.save();
+            if(layer.filters.blur > 0) {
+                ctx.filter = `blur(${layer.filters.blur}px)`;
+            }
+            ctx.drawImage(layer.originalCanvas, 0, 0);
+            ctx.restore();
+
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const data = imageData.data;
+
+            // Pixel Manipulation Filters
+            const contrast = layer.filters.contrast || 0;
+            const contrastFactor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+
+            for (let i = 0; i < data.length; i += 4) {
+                // Grayscale
+                if (layer.filters.grayscale) {
+                    const avg = 0.3 * data[i] + 0.59 * data[i + 1] + 0.11 * data[i + 2];
+                    data[i] = data[i + 1] = data[i + 2] = avg;
+                }
+                
+                // Sepia
+                if (layer.filters.sepia) {
+                    const r = data[i], g = data[i + 1], b = data[i + 2];
+                    data[i] = Math.min(255, (r * 0.393) + (g * 0.769) + (b * 0.189));
+                    data[i + 1] = Math.min(255, (r * 0.349) + (g * 0.686) + (b * 0.168));
+                    data[i + 2] = Math.min(255, (r * 0.272) + (g * 0.534) + (b * 0.131));
+                }
+
+                // Invert
+                if (layer.filters.invert) {
+                    data[i] = 255 - data[i];
+                    data[i + 1] = 255 - data[i + 1];
+                    data[i + 2] = 255 - data[i + 2];
+                }
+
+                // Brightness
+                if (layer.filters.brightness !== 0) {
+                    const brightness = layer.filters.brightness;
+                    data[i] += brightness; data[i + 1] += brightness; data[i + 2] += brightness;
+                }
+
+                // Contrast
+                if (contrast !== 0) {
+                    data[i] = contrastFactor * (data[i] - 128) + 128;
+                    data[i + 1] = contrastFactor * (data[i + 1] - 128) + 128;
+                    data[i + 2] = contrastFactor * (data[i + 2] - 128) + 128;
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+            updateCanvasDOM();
+        }
+
+        // --- TEXT TOOL ---
+        function wrapTextLines(ctx, text, maxWidth) {
+            const paragraphs = text.split('\n');
+            let lines = [];
+            
+            paragraphs.forEach(para => {
+                const words = para.split(' ');
+                let currentLine = words[0] || '';
+                
+                for(let i = 1; i < words.length; i++) {
+                    const word = words[i];
+                    const width = ctx.measureText(currentLine + " " + word).width;
+                    if (width < maxWidth) {
+                        currentLine += " " + word;
+                    } else {
+                        lines.push(currentLine);
+                        currentLine = word;
+                    }
+                }
+                
+                // Force break logic for extremely long words that exceed maxWidth alone
+                if (ctx.measureText(currentLine).width > maxWidth) {
+                    // This line is too long and it's a single word or a forced break.
+                    // Let's break it by character if needed.
+                    let tempLine = "";
+                    for(let char of currentLine) {
+                        if(ctx.measureText(tempLine + char).width > maxWidth) {
+                            lines.push(tempLine);
+                            tempLine = char;
+                        } else {
+                            tempLine += char;
+                        }
+                    }
+                    lines.push(tempLine);
+                } else {
+                    lines.push(currentLine);
+                }
+            });
+            
+            // Cleanup empty lines
+            return lines.filter(l => l !== undefined);
+        }
+
+        function renderTextLayerContent(layer) {
+            if(!layer.textData) return;
+            const { text, fontSize, fontFamily, color } = layer.textData;
+            const maxWidth = Math.max(20, layer.position.width);
+            const tempC = document.createElement('canvas');
+            const tempCtx = tempC.getContext('2d');
+            tempCtx.font = `${fontSize}px "${fontFamily}"`;
+            const padding = 10;
+            const lines = wrapTextLines(tempCtx, text, Math.max(1, maxWidth - (padding * 2))); 
+            const lineHeight = fontSize * 1.2;
+            const newHeight = Math.ceil(lines.length * lineHeight + (padding * 2));
+            
+            layer.canvas.width = maxWidth; layer.canvas.height = newHeight;
+            layer.position.height = newHeight;
+            const ctx = layer.canvas.getContext('2d');
+            ctx.clearRect(0, 0, maxWidth, newHeight);
+            ctx.font = `${fontSize}px "${fontFamily}"`;
+            ctx.fillStyle = color;
+            ctx.textBaseline = 'top';
+            lines.forEach((line, i) => { ctx.fillText(line, padding, padding + (i * lineHeight)); });
+        }
+
+        function applyText() {
+            const text = document.getElementById('text-tool-input').value;
+            if(!text.trim()) { cancelText(); return; }
+            
+            if (state.editingLayerId) {
+                // UPDATE EXISTING TEXT
+                const layer = state.layers.find(l => l.id === state.editingLayerId);
+                if (layer) {
+                    layer.textData.text = text;
+                    layer.textData.fontSize = state.fontSize;
+                    layer.textData.fontFamily = state.fontFamily;
+                    layer.textData.color = state.color;
+                    layer.name = `Texto: ${text.substring(0, 10)}...`;
+                    renderTextLayerContent(layer);
+                    updateCanvasDOM();
+                    saveHistory();
+                    showToast('Texto actualizado', 'success');
+                }
+            } else {
+                // CREATE NEW TEXT
+                const fontSize = state.fontSize;
+                const measureC = document.createElement('canvas');
+                const measureCtx = measureC.getContext('2d');
+                measureCtx.font = `${fontSize}px "${state.fontFamily}"`;
+                const lines = text.split('\n');
+                let maxWidth = 0;
+                lines.forEach(line => { const w = measureCtx.measureText(line).width; if(w > maxWidth) maxWidth = w; });
+                maxWidth += 20;
+               
+                const newId = `text-${Date.now()}`;
+                const newLayer = {
+                    id: newId, name: `Texto: ${text.substring(0, 10)}...`, visible: true, opacity: 100, blendMode: 'normal',
+                    canvas: document.createElement('canvas'),
+                    position: { x: state.typingPos.x, y: state.typingPos.y, width: maxWidth, height: 0, rotation: 0 }, type: 'text',
+                    textData: { text: text, fontSize: fontSize, fontFamily: state.fontFamily, color: state.color }
+                };
+                renderTextLayerContent(newLayer);
+                state.layers = [...state.layers, newLayer];
+                setActiveLayerId(newId);
+                saveHistory();
+            }
+            
+            // Clean up
+            cancelText(); 
+            updateCanvasDOM(); 
+        }
+
+        function cancelText() { 
+            state.typingPos = null; 
+            state.textInput = ''; 
+            document.getElementById('text-tool-input').value = ''; 
+            updateTextToolUI(); 
+            if(state.editingLayerId) {
+                state.editingLayerId = null;
+                setTool('select');
+            }
+        }
+        
+        function updateTextToolUI() {
+            const div = document.getElementById('text-input-container');
+            const input = document.getElementById('text-tool-input');
+            if(state.typingPos) {
+                div.classList.remove('hidden');
+                div.style.left = (state.typingPos.x * state.zoom) + 'px';
+                div.style.top = (state.typingPos.y * state.zoom) + 'px';
+                input.value = state.textInput;
+                input.style.fontFamily = state.fontFamily;
+                input.style.fontSize = (state.fontSize * state.zoom) + 'px';
+                input.style.color = state.color;
+                input.style.height = 'auto';
+                setTimeout(() => { input.style.height = input.scrollHeight + 'px'; input.focus(); }, 0);
+            } else { div.classList.add('hidden'); }
+        }
+
+        function startEditingText(layer) {
+            state.editingLayerId = layer.id;
+            state.textInput = layer.textData.text;
+            state.typingPos = { x: layer.position.x, y: layer.position.y };
+            
+            // Sync styles
+            state.color = layer.textData.color;
+            state.fontSize = layer.textData.fontSize;
+            state.fontFamily = layer.textData.fontFamily;
+            
+            // Update Color UI
+            const colorInput = document.querySelector('input[type="color"]');
+            if(colorInput) {
+                colorInput.value = state.color;
+                colorInput.parentElement.style.backgroundColor = state.color;
+            }
+
+            setTool('text');
+            updateTextToolUI();
+        }
+
+        // --- DRAWING & EVENTS ---
+        function handleMouseDown(e) {
+            if (e.target.closest('#text-input-container')) return;
+            const pos = getMousePos(e);
+            state.startPos = pos; state.endPos = pos;
+            
+            if (state.tool === 'text') {
+                if(state.typingPos) { applyText(); return; }
+                state.typingPos = pos; state.textInput = ''; updateTextToolUI();
+                return;
+            }
+
+            if(state.tool === 'select') {
+                const handle = checkHandleHit(e);
+                if(handle) {
+                    const el = getSelectedElement();
+                    if(handle === 'rot') { state.isRotating = true; const cx = el.x + el.width/2; const cy = el.y + el.height/2; state.lastMouseAngle = Math.atan2(pos.y - cy, pos.x - cx) * 180 / Math.PI; }
+                    else { state.isResizing = true; state.resizeHandle = handle; }
+                    state.dragStart = { x: 0, y: 0 }; return;
+                }
+                const found = getElementAt(pos.x, pos.y);
+                if(found) {
+                    setActiveLayerId(found.id); state.selectedId = found.id; state.selectedType = found.type;
+                    if(found.item.type === 'text' && found.item.textData) { state.fontSize = found.item.textData.fontSize; state.fontFamily = found.item.textData.fontFamily; updateInfoPanel(); }
+                    state.isDragging = true; state.dragStart = { x: pos.x - found.item.position.x, y: pos.y - found.item.position.y }; updateOverlay(); return;
+                } else { state.selectedId = null; updateOverlay(); updateInfoPanel(); return; }
+            }
+            if (state.tool === 'fill') { performFloodFill(pos.x, pos.y); return; }
+            if (state.tool === 'wand') { performMagicErase(pos.x, pos.y); return; }
+            if (state.tool === 'crop-poly') { state.cropPoints.push(pos); renderSvgPreview(); return; }
+            if (state.tool === 'create-shape') { state.customShapePoints.push(pos); renderSvgPreview(); return; }
+
+            startDrawing(pos.x, pos.y);
+        }
+
+        function handleDoubleClick(e) {
+            const pos = getMousePos(e);
+            const found = getElementAt(pos.x, pos.y);
+            if (found && found.item.type === 'text') {
+                startEditingText(found.item);
+            }
+        }
+
+        function handleMouseMove(e) {
+            const pos = getMousePos(e);
+            state.mousePos = pos; state.endPos = pos;
+            if (state.tool === 'group-select' && state.isDrawing) { state.selectionBox = { x: state.startPos.x, y: state.startPos.y, w: pos.x - state.startPos.x, h: pos.y - state.startPos.y }; renderSvgPreview(); }
+            
+            if (state.tool === 'select') {
+                if(state.isDragging && state.selectedId) { updateMovableLayer(state.selectedId, { x: pos.x - state.dragStart.x, y: pos.y - state.dragStart.y }); }
+                else if (state.isRotating && state.selectedId) {
+                    const item = getSelectedElement();
+                    const cx = item.x + item.width / 2; const cy = item.y + item.height / 2;
+                    const currentMouseAngle = Math.atan2(pos.y - cy, pos.x - cx) * 180 / Math.PI;
+                    let delta = currentMouseAngle - state.lastMouseAngle;
+                    if (delta > 180) delta -= 360; if (delta < -180) delta += 360;
+                    updateMovableLayer(state.selectedId, { rotation: (item.rotation || 0) + delta });
+                    state.lastMouseAngle = currentMouseAngle;
+                } else if (state.isResizing && state.selectedId) {
+                    const item = getSelectedElement();
+                    let { x: nx, y: ny, width: nw, height: nh } = item;
+                    if (state.resizeHandle.includes('e')) nw = pos.x - nx;
+                    if (state.resizeHandle.includes('w')) { nw = nx + nw - pos.x; nx = pos.x; }
+                    if (state.resizeHandle.includes('s')) nh = pos.y - ny;
+                    if (state.resizeHandle.includes('n')) { nh = ny + nh - pos.y; ny = pos.y; }
+                    if(nw < 20) nw = 20; if(nh < 10) nh = 10;
+                   
+                    const layer = state.layers.find(l => l.id === state.selectedId);
+                    if(layer && layer.type === 'text') {
+                         if (state.resizeHandle === 'e' || state.resizeHandle === 'w') {
+                             layer.position.width = nw; renderTextLayerContent(layer); nh = layer.position.height;
+                             updateMovableLayer(state.selectedId, { x: nx, y: ny, width: nw, height: nh });
+                         } else {
+                             const scaleRatio = nh / layer.position.height;
+                             layer.textData.fontSize = Math.max(8, layer.textData.fontSize * scaleRatio);
+                             if (state.resizeHandle.length > 1) layer.position.width *= scaleRatio;
+                             renderTextLayerContent(layer); nh = layer.position.height; nw = layer.position.width;
+                             updateMovableLayer(state.selectedId, { x: nx, y: ny, width: nw, height: nh });
+                         }
+                        updateInfoPanel();
+                    } else { updateMovableLayer(state.selectedId, { x: nx, y: ny, width: nw, height: nh }); }
+                }
+            }
+            if ((state.tool === 'crop-poly' || state.tool === 'create-shape')) renderSvgPreview();
+            draw(pos.x, pos.y);
+        }
+
+        function handleMouseUp(e) {
+            const pos = getMousePos(e);
+            if (state.tool === 'select') {
+                if (state.isResizing) {
+                    const layer = getActiveLayer();
+                    if(layer && layer.canvas && layer.type !== 'text') {
+                        const newCanvas = document.createElement('canvas'); newCanvas.width = layer.position.width; newCanvas.height = layer.position.height;
+                        newCanvas.getContext('2d').drawImage(layer.canvas, 0, 0, newCanvas.width, newCanvas.height);
+                        updateLayer(layer.id, { canvas: newCanvas });
+                    }
+                }
+                if(state.isDragging || state.isRotating || state.isResizing) saveHistory();
+                state.isDragging = false; state.isRotating = false; state.isResizing = false; state.resizeHandle = null;
+            }
+            if (state.tool === 'group-select' && state.isDrawing) { state.isDrawing = false; performVisualGroupMerge(state.selectionBox); state.selectionBox = null; setTool('select'); }
+            stopDrawing();
+        }
+
+        function startDrawing(x, y) {
+            const layer = getActiveLayer(); if (!layer || !layer.canvas) return;
+            state.isDrawing = true;
+            const localPos = toLocalCoords(x, y, layer);
+            state.lastDrawPos = localPos;
+            const ctx = layer.canvas.getContext('2d');
+            
+            // Configurar propiedades comunes
+            ctx.lineWidth = state.brushSize;
+            
+            if (state.tool === 'eraser') {
+                ctx.lineCap = (state.eraserShape === 'square') ? 'square' : 'round';
+                ctx.lineJoin = (state.eraserShape === 'square') ? 'miter' : 'round';
+                ctx.strokeStyle = 'rgba(0,0,0,1)';
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.globalAlpha = state.eraserOpacity / 100;
+            } else if (state.tool === 'brush') {
+                ctx.strokeStyle = state.color;
+                ctx.fillStyle = state.color;
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.globalAlpha = state.brushOpacity / 100;
+               
+                // Configurar tipo de pincel
+                if (state.brushType === 'round') {
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                } else if (state.brushType === 'square') {
+                    ctx.lineCap = 'square'; ctx.lineJoin = 'miter';
+                } else if (state.brushType === 'pen') {
+                    // Para la pluma, no usamos lineTo estándar, dibujamos polígonos
+                    ctx.lineCap = 'butt'; ctx.lineJoin = 'round';
+                }
+            } else {
+                ctx.strokeStyle = state.color;
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.globalAlpha = 1;
+            }
+
+            if (state.tool === 'eraser' || (state.tool === 'brush' && (state.brushType === 'round' || state.brushType === 'square'))) { 
+                ctx.beginPath(); 
+                ctx.moveTo(localPos.x, localPos.y); 
+                ctx.lineTo(localPos.x, localPos.y); 
+                ctx.stroke(); 
+            }
+        }
+
+        function draw(x, y) {
+            if (!state.isDrawing) return;
+            if (['fill', 'wand', 'crop-poly', 'create-shape', 'text', 'select', 'group-select'].includes(state.tool)) return;
+            const layer = getActiveLayer(); if(!layer) return;
+            const ctx = layer.canvas.getContext('2d');
+            const localPos = toLocalCoords(x, y, layer);
+
+            if (state.tool === 'eraser' || (state.tool === 'brush' && (state.brushType === 'round' || state.brushType === 'square'))) {
+                ctx.beginPath(); ctx.moveTo(state.lastDrawPos.x, state.lastDrawPos.y); ctx.lineTo(localPos.x, localPos.y); ctx.stroke();
+                state.lastDrawPos = localPos;
+            } else if (state.tool === 'brush' && state.brushType === 'pen') {
+                // Pluma Caligráfica (Ángulo 45 grados)
+                const angle = Math.PI / 4;
+                const h = state.brushSize; 
+                const dx = Math.cos(angle) * h/2;
+                const dy = Math.sin(angle) * h/2;
+               
+                ctx.beginPath();
+                ctx.moveTo(state.lastDrawPos.x - dx, state.lastDrawPos.y - dy);
+                ctx.lineTo(state.lastDrawPos.x + dx, state.lastDrawPos.y + dy);
+                ctx.lineTo(localPos.x + dx, localPos.y + dy);
+                ctx.lineTo(localPos.x - dx, localPos.y - dy);
+                ctx.closePath();
+                ctx.fill();
+                state.lastDrawPos = localPos;
+            } else if (state.tool === 'brush' && state.brushType === 'spray') {
+                // Spray (Aerosol)
+                const density = Math.floor(state.brushSize * state.brushSize / 4) + 1; // Densidad basada en tamaño
+                for (let i = 0; i < density; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = Math.random() * state.brushSize;
+                    const ox = Math.cos(angle) * radius;
+                    const oy = Math.sin(angle) * radius;
+                    ctx.fillRect(localPos.x + ox, localPos.y + oy, 1, 1);
+                }
+                state.lastDrawPos = localPos;
+            } else if (['rect', 'circle', 'line', 'triangle', 'star'].includes(state.tool) || state.tool.startsWith('custom-shape-')) {
+                state.previewShape = { type: state.tool, x: state.startPos.x, y: state.startPos.y, width: x - state.startPos.x, height: y - state.startPos.y };
+                renderSvgPreview();
+            }
+        }
+
+        function stopDrawing() {
+            if (state.isDrawing) {
+                if (state.previewShape) {
+                    const startX = state.startPos.x; const endX = state.endPos.x; const startY = state.startPos.y; const endY = state.endPos.y;
+                    let shapeData = { color: state.color, strokeWidth: state.brushSize };
+                     if (state.tool.startsWith('custom-shape-')) {
+                        const shapeIndex = parseInt(state.tool.split('custom-shape-')[1]);
+                        shapeData.customShape = state.customShapesLibrary[shapeIndex];
+                    }
+                    addShapeAsLayer(startX, startY, endX, endY, state.tool, shapeData);
+                    state.previewShape = null; renderSvgPreview();
+                } else if (state.tool === 'brush' || state.tool === 'eraser') { saveHistory(); }
+                state.isDrawing = false;
+            }
+        }
+
+        function addShapeAsLayer(startX, startY, endX, endY, shapeType, shapeData) {
+            const w = endX - startX; const h = endY - startY;
+            const minX = Math.min(startX, endX); const minY = Math.min(startY, endY);
+            const absW = Math.max(Math.abs(w), 1); const absH = Math.max(Math.abs(h), 1);
+            const padding = (shapeData.strokeWidth || state.brushSize) + 2;
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = absW + padding * 2; tempCanvas.height = absH + padding * 2;
+            const ctx = tempCanvas.getContext('2d');
+            ctx.lineWidth = shapeData.strokeWidth || state.brushSize;
+            ctx.strokeStyle = shapeData.color || state.color; ctx.fillStyle = shapeData.color || state.color;
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.translate(padding, padding);
+            
+            ctx.beginPath();
+            if (shapeType === 'rect') ctx.strokeRect(0, 0, absW, absH);
+            else if (shapeType === 'circle') { ctx.ellipse(absW/2, absH/2, absW/2, absH/2, 0, 0, 2 * Math.PI); ctx.stroke(); }
+            else if (shapeType === 'line') { ctx.moveTo(startX > endX ? absW : 0, startY > endY ? absH : 0); ctx.lineTo(startX > endX ? 0 : absW, startY > endY ? 0 : absH); ctx.stroke(); }
+            else if (shapeType === 'triangle') { ctx.moveTo(absW/2, 0); ctx.lineTo(0, absH); ctx.lineTo(absW, absH); ctx.closePath(); ctx.stroke(); }
+            else if (shapeType === 'star') { drawStarOnCanvas(ctx, absW/2, absH/2, 5, Math.min(absW, absH)/2, Math.min(absW, absH)/4); ctx.stroke(); }
+            else if (shapeType.startsWith('custom-shape-')) { if (shapeData.customShape?.points) { drawCustomShape(ctx, shapeData.customShape.points, 0, 0, absW, absH); ctx.stroke(); } }
+
+            const newId = `shape-${Date.now()}`;
+            const newLayer = {
+                id: newId, name: `Figura`, visible: true, opacity: 100, blendMode: 'normal',
+                canvas: tempCanvas, position: { x: minX - padding, y: minY - padding, width: tempCanvas.width, height: tempCanvas.height, rotation: 0 }, type: 'shape'
+            };
+            state.layers = [...state.layers, newLayer];
+            setActiveLayerId(newId); updateCanvasDOM(); renderLayerList(); saveHistory();
+        }
+        
+        function drawStarOnCanvas(ctx, cx, cy, spikes, outerRadius, innerRadius) {
+            let rot = Math.PI / 2 * 3; let x = cx; let y = cy; let step = Math.PI / spikes;
+            ctx.moveTo(cx, cy - outerRadius);
+            for (let i = 0; i < spikes; i++) {
+                x = cx + Math.cos(rot) * outerRadius; y = cy + Math.sin(rot) * outerRadius; ctx.lineTo(x, y); rot += step;
+                x = cx + Math.cos(rot) * innerRadius; y = cy + Math.sin(rot) * innerRadius; ctx.lineTo(x, y); rot += step;
+            }
+            ctx.lineTo(cx, cy - outerRadius); ctx.closePath();
+        }
+        
+        function drawCustomShape(ctx, points, x, y, w, h) {
+            if (!points.length) return;
+            ctx.moveTo(x + points[0].x * w, y + points[0].y * h);
+            for (let i = 1; i < points.length; i++) { ctx.lineTo(x + points[i].x * w, y + points[i].y * h); }
+        }
+
+        // --- HELPERS ---
+        function checkHandleHit(e) { const t = e.target; if(t.id === 'handle-rot') return 'rot'; if(t.id.startsWith('handle-')) return t.id.replace('handle-', ''); return null; }
+        function getSelectedElement() { if(!state.selectedId) return null; const l = state.layers.find(l => l.id === state.selectedId); if(l && l.position) return { ...l.position }; return null; }
+        function isPointInRotatedRect(px, py, x, y, w, h, degrees) { const r = (degrees * Math.PI) / 180; const cx = x + w / 2; const cy = y + h / 2; const dx = px - cx; const dy = py - cy; const rx = dx * Math.cos(-r) - dy * Math.sin(-r); const ry = dx * Math.sin(-r) + dy * Math.cos(-r); return rx >= -w / 2 && rx <= w / 2 && ry >= -h / 2 && ry <= h / 2; }
+        
+        function getElementAt(x, y) { 
+            // 1. Check currently transformed/selected element (Prioridad Absoluta)
+            if (state.selectedId) {
+                const activeL = state.layers.find(l => l.id === state.selectedId);
+                if (activeL && activeL.visible && activeL.position && isPointInRotatedRect(x, y, activeL.position.x, activeL.position.y, activeL.position.width, activeL.position.height, activeL.position.rotation || 0)) { return { id: activeL.id, type: activeL.type || 'layer', item: activeL }; }
+            }
+            
+            // 2. Check ACTIVE LAYER in Sidebar (Prioridad Solicitada)
+            if (state.activeLayerId && state.activeLayerId !== state.selectedId) {
+                const activeL = state.layers.find(l => l.id === state.activeLayerId);
+                if (activeL && activeL.visible && activeL.position && isPointInRotatedRect(x, y, activeL.position.x, activeL.position.y, activeL.position.width, activeL.position.height, activeL.position.rotation || 0)) { 
+                    return { id: activeL.id, type: activeL.type || 'layer', item: activeL }; 
+                }
+            }
+
+            // 3. Standard Top-Down check
+            for (let i = state.layers.length - 1; i >= 0; i--) {
+                const l = state.layers[i];
+                if (l.visible && l.position && isPointInRotatedRect(x, y, l.position.x, l.position.y, l.position.width, l.position.height, l.position.rotation || 0)) return { id: l.id, type: l.type || 'layer', item: l };
+            }
+            return null;
+        }
+
+        // --- IO & HISTORY ---
+        function updateLayer(id, updates) { const l = state.layers.find(l => l.id === id); if(l) { Object.assign(l, updates); updateCanvasDOM(); } }
+        function updateMovableLayer(id, updates) { const l = state.layers.find(l => l.id === id); if(l && l.position) { Object.assign(l.position, updates); updateCanvasDOM(); updateOverlay(); } }
+        function moveLayer(index, direction) { const newIndex = index + direction; if (newIndex < 0 || newIndex >= state.layers.length) return; const temp = state.layers[index]; state.layers[index] = state.layers[newIndex]; state.layers[newIndex] = temp; updateCanvasDOM(); renderLayerList(); saveHistory(); }
+        function toggleVisibility(id) { const layer = state.layers.find(l => l.id === id); if (layer) { layer.visible = !layer.visible; updateCanvasDOM(); renderLayerList(); } }
+
+        function saveHistory() {
+            const s = state.layers.map(l => ({
+                id: l.id, name: l.name, visible: l.visible, opacity: l.opacity, blendMode: l.blendMode, position: { ...l.position },
+                canvasData: l.canvas ? l.canvas.toDataURL() : null, originalCanvasData: l.originalCanvas ? l.originalCanvas.toDataURL() : null,
+                type: l.type, textData: l.textData ? { ...l.textData } : null, filters: l.filters ? { ...l.filters } : null
+            }));
+            const n = state.history.slice(0, state.historyStep + 1); n.push({ layers: s });
+            if (n.length > 20) n.shift(); else state.historyStep = n.length - 1;
+            state.history = n; updateUndoRedoButtons();
+        }
+        const saveHistoryDebounced = debounce(saveHistory, 500);
+        function debounce(func, wait) { let t; return function(...a) { clearTimeout(t); t = setTimeout(() => func.apply(this, a), wait); }; }
+        function updateUndoRedoButtons() { const u = document.getElementById('btn-undo'); const r = document.getElementById('btn-redo'); u.disabled = state.historyStep <= 0; r.disabled = state.historyStep >= state.history.length - 1; u.classList.toggle('opacity-50', u.disabled); r.classList.toggle('opacity-50', r.disabled); u.classList.toggle('cursor-not-allowed', u.disabled); r.classList.toggle('cursor-not-allowed', r.disabled); }
+        async function handleUndo() { if (state.historyStep > 0) { state.historyStep--; await restoreState(state.history[state.historyStep]); updateUndoRedoButtons(); showToast('Deshacer', 'info'); } }
+        async function handleRedo() { if (state.historyStep < state.history.length - 1) { state.historyStep++; await restoreState(state.history[state.historyStep]); updateUndoRedoButtons(); showToast('Rehacer', 'info'); } }
+        
+        async function restoreState(s) {
+            state.layers = [];
+            const layerPromises = s.layers.map(async (lData) => {
+                const newLayer = { ...lData };
+                if (lData.canvasData) {
+                    const img = new Image(); img.src = lData.canvasData; await new Promise(resolve => img.onload = resolve);
+                    const c = document.createElement('canvas'); c.width = lData.position.width; c.height = lData.position.height; c.getContext('2d').drawImage(img, 0, 0); newLayer.canvas = c;
+                }
+                if (lData.originalCanvasData) {
+                    const img = new Image(); img.src = lData.originalCanvasData; await new Promise(resolve => img.onload = resolve);
+                    const oc = document.createElement('canvas'); oc.width = lData.position.width; oc.height = lData.position.height; oc.getContext('2d').drawImage(img, 0, 0); newLayer.originalCanvas = oc;
+                }
+                delete newLayer.canvasData; delete newLayer.originalCanvasData; return newLayer;
+            });
+            state.layers = await Promise.all(layerPromises);
+            if (!state.layers.find(l => l.id === state.activeLayerId)) state.activeLayerId = state.layers.length > 0 ? state.layers[0].id : null;
+            updateCanvasDOM(); renderLayerList(); renderLayerOptionsPanel(); updateInfoPanel();
+        }
+
+        // --- ADVANCED FUNCTIONS (Crop, Merge, Wand) ---
+        function applyCrop(mode) {
+            const layer = getActiveLayer(); if (!layer || !state.cropPoints.length) return;
+            const cvs = layer.canvas; const w = cvs.width; const h = cvs.height;
+            const temp = document.createElement('canvas'); temp.width = w; temp.height = h; const ctx = temp.getContext('2d');
+            const rad = -(layer.position.rotation || 0) * Math.PI / 180; const cx = w / 2; const cy = h / 2;
+            const points = state.cropPoints.map(p => {
+                const lx = p.x - layer.position.x; const ly = p.y - layer.position.y;
+                const dx = lx - cx; const dy = ly - cy;
+                const rx = dx * Math.cos(rad) - dy * Math.sin(rad); const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
+                return { x: rx + cx, y: ry + cy };
+            });
+            ctx.beginPath(); if(points.length > 0) ctx.moveTo(points[0].x, points[0].y); for(let i=1; i<points.length; i++) ctx.lineTo(points[i].x, points[i].y); ctx.closePath();
+            if (mode === 'inside') { ctx.save(); ctx.clip(); ctx.drawImage(layer.canvas, 0, 0); ctx.restore(); }
+            else { ctx.drawImage(layer.canvas, 0, 0); ctx.globalCompositeOperation = 'destination-out'; ctx.fill(); ctx.globalCompositeOperation = 'source-over'; }
+            layer.canvas = temp; state.cropPoints = []; state.previewShape = null; setTool('select'); updateCanvasDOM(); saveHistory();
+            showToast('Recorte aplicado', 'success');
+        }
+
+        function performVisualGroupMerge(box) {
+             if (!box || Math.abs(box.w) < 5 || Math.abs(box.h) < 5) return;
+             const selectX = box.w < 0 ? box.x + box.w : box.x; const selectY = box.h < 0 ? box.y + box.h : box.y;
+             const selectW = Math.abs(box.w); const selectH = Math.abs(box.h);
+             const selectMaxX = selectX + selectW;
+             const selectMaxY = selectY + selectH;
+             
+             let candidates = [];
+             [...state.layers].forEach(l => {
+                if(!l.visible) return;
+                if(l.id === 'layer-bg') return; // PROTECT BACKGROUND
+
+                const rad = (l.position.rotation || 0) * Math.PI / 180;
+                const hw = l.position.width / 2;
+                const hh = l.position.height / 2;
+                const centerX = l.position.x + hw;
+                const centerY = l.position.y + hh;
+                
+                // Check all corners
+                const corners = [{x: -hw, y: -hh}, {x: hw, y: -hh}, {x: hw, y: hh}, {x: -hw, y: hh}];
+                const cos = Math.cos(rad); const sin = Math.sin(rad);
+                let allCornersInside = true;
+                for (const p of corners) {
+                    const rx = centerX + (p.x * cos - p.y * sin);
+                    const ry = centerY + (p.x * sin + p.y * cos);
+                    if (rx < selectX || rx > selectMaxX || ry < selectY || ry > selectMaxY) { allCornersInside = false; break; }
+                }
+
+                const centerInside = centerX >= selectX && centerX <= selectMaxX && centerY >= selectY && centerY <= selectMaxY;
+                
+                // Allow if visually contained OR center is inside (for large layers, this acts as a 'crop')
+                if (allCornersInside || centerInside) {
+                    candidates.push(l);
+                }
+             });
+             
+             if(candidates.length === 0) return;
+
+             const tempCanvas = document.createElement('canvas'); tempCanvas.width = selectW; tempCanvas.height = selectH; const ctx = tempCanvas.getContext('2d');
+             ctx.translate(-selectX, -selectY);
+             candidates.forEach(l => {
+                ctx.save(); ctx.globalAlpha = l.opacity / 100; ctx.globalCompositeOperation = l.blendMode || 'source-over';
+                const cx = l.position.x + l.position.width/2; const cy = l.position.y + l.position.height/2;
+                ctx.translate(cx, cy); ctx.rotate((l.position.rotation || 0) * Math.PI / 180); ctx.translate(-cx, -cy);
+                ctx.drawImage(l.canvas, l.position.x, l.position.y); ctx.restore();
+             });
+             
+             // Create original canvas copy for filters
+             const original = document.createElement('canvas');
+             original.width = selectW; original.height = selectH;
+             original.getContext('2d').drawImage(tempCanvas, 0, 0);
+
+             const newId = `merged-${Date.now()}`;
+             const newLayer = { 
+                 id: newId, 
+                 name: 'Grupo Fusionado', 
+                 visible: true, 
+                 opacity: 100, 
+                 blendMode: 'normal', 
+                 canvas: tempCanvas, 
+                 originalCanvas: original, // Set original for filters
+                 filters: { grayscale: false, sepia: false, invert: false, brightness: 0, contrast: 0, blur: 0 },
+                 position: { x: selectX, y: selectY, width: selectW, height: selectH, rotation: 0 }, 
+                 type: 'merged' // Treated same as 'image' for drawing/filters
+             };
+             const candidateIds = candidates.map(c => c.id); state.layers = state.layers.filter(l => !candidateIds.includes(l.id));
+             state.layers = [...state.layers, newLayer]; setActiveLayerId(newId); updateCanvasDOM(); renderLayerList(); saveHistory();
+             showToast(`${candidates.length} capas fusionadas`, 'success');
+        }
+
+        function performFloodFill(globalX, globalY) {
+            const layer = getActiveLayer(); if (!layer) return;
+            const ctx = layer.canvas.getContext('2d');
+            const { width, height } = layer.position; const localPos = toLocalCoords(globalX, globalY, layer);
+            const startX = Math.floor(localPos.x); const startY = Math.floor(localPos.y);
+            if (startX < 0 || startX >= width || startY < 0 || startY >= height) return;
+            const imageData = ctx.getImageData(0, 0, width, height); const data = imageData.data;
+            const startPos = (startY * width + startX) * 4;
+            const fillRgb = hexToRgb(state.color);
+            const startR = data[startPos]; const startG = data[startPos + 1]; const startB = data[startPos + 2]; const startA = data[startPos + 3];
+            const fillR = fillRgb.r, fillG = fillRgb.g, fillB = fillRgb.b, fillA = 255;
+            if (startR === fillR && startG === fillG && startB === fillB && startA === fillA && state.tolerance === 0) return;
+            const visited = new Uint8Array(width * height); const stack = [[startX, startY]];
+            const matches = (idx) => {
+                const pos = idx * 4;
+                const diff = (Math.abs(data[pos] - startR) + Math.abs(data[pos+1] - startG) + Math.abs(data[pos+2] - startB) + Math.abs(data[pos+3] - startA)) / 4;
+                return diff <= state.tolerance;
+            };
+            while (stack.length) {
+                const [cx, cy] = stack.pop(); const idx = cy * width + cx;
+                if (cx < 0 || cx >= width || cy < 0 || cy >= height || visited[idx]) continue;
+                if (matches(idx)) {
+                    const pixelPos = idx * 4; data[pixelPos] = fillR; data[pixelPos+1] = fillG; data[pixelPos+2] = fillB; data[pixelPos+3] = fillA; visited[idx] = 1;
+                    stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+                }
+            }
+            ctx.putImageData(imageData, 0, 0); updateCanvasDOM(); saveHistory();
+        }
+
+        function performMagicErase(globalX, globalY) {
+            const layer = getActiveLayer(); if (!layer) return;
+            const ctx = layer.canvas.getContext('2d');
+            const { width, height } = layer.position; const localPos = toLocalCoords(globalX, globalY, layer);
+            const startX = Math.floor(localPos.x); const startY = Math.floor(localPos.y);
+            if (startX < 0 || startX >= width || startY < 0 || startY >= height) return;
+            const imageData = ctx.getImageData(0, 0, width, height); const data = imageData.data;
+            const startPos = (startY * width + startX) * 4;
+            const startR = data[startPos], startG = data[startPos + 1], startB = data[startPos + 2], startA = data[startPos + 3];
+            if (startA === 0) return;
+            const threshold = state.tolerance * 3;
+            const colorMatch = (r, g, b) => { const dr = r - startR; const dg = g - startG; const db = b - startB; return Math.sqrt(dr*dr + dg*dg + db*db) <= threshold; };
+
+            if (state.wandContiguous) {
+                const visited = new Uint8Array(width * height); const stack = [[startX, startY]];
+                while (stack.length) {
+                    const [cx, cy] = stack.pop(); const idx = cy * width + cx;
+                    if (cx < 0 || cx >= width || cy < 0 || cy >= height || visited[idx]) continue;
+                    visited[idx] = 1; const pixelPos = idx * 4;
+                    if (data[pixelPos+3] > 0 && colorMatch(data[pixelPos], data[pixelPos+1], data[pixelPos+2])) {
+                        data[pixelPos+3] = 0; stack.push([cx+1, cy], [cx-1, cy], [cx, cy+1], [cx, cy-1]);
+                    }
+                }
+            } else {
+                for (let i = 0; i < data.length; i += 4) { if (data[i+3] > 0 && colorMatch(data[i], data[i+1], data[i+2])) { data[i+3] = 0; } }
+            }
+            ctx.putImageData(imageData, 0, 0); updateCanvasDOM(); saveHistory();
+            showToast('Área borrada', 'success');
+        }
+
+        // --- EXPORT/IMPORT ---
+        function handlePaste(e) {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let index in items) {
+                const item = items[index];
+                if (item.kind === 'file' && item.type.includes('image/')) {
+                    const blob = item.getAsFile(); const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const s = Math.min(800/img.width, 600/img.height, 1);
+                            const w = img.width * s; const h = img.height * s;
+                            const t = document.createElement('canvas'); t.width = w; t.height = h; t.getContext('2d').drawImage(img, 0, 0, w, h);
+                            const original = document.createElement('canvas'); original.width = w; original.height = h; original.getContext('2d').drawImage(t, 0, 0);
+                            const id = `layer-${Date.now()}`;
+                            const newLayer = {
+                                id: id, name: 'Pegada', visible: true, opacity: 100, blendMode: 'normal', canvas: t, originalCanvas: original,
+                                filters: { grayscale: false, sepia: false, invert: false, brightness: 0, contrast: 0, blur: 0 }, position: { x: (800-w)/2, y: (600-h)/2, width: w, height: h, rotation: 0 }, type: 'image'
+                            };
+                            state.layers = [...state.layers, newLayer]; setActiveLayerId(id); updateCanvasDOM(); renderLayerList(); saveHistory();
+                            showToast('Imagen pegada', 'success');
+                        };
+                        img.src = event.target.result;
+                    };
+                    reader.readAsDataURL(blob);
+                    e.preventDefault();
+                }
+            }
+        }
+
+        function handleImageUpload(e) {
+            const f = e.target.files[0];
+            if(f) {
+                const r = new FileReader();
+                r.onload = (ev) => {
+                    const i = new Image();
+                    i.onload = () => {
+                        const s = Math.min(800/i.width, 600/i.height, 1);
+                        const w = i.width * s; const h = i.height * s;
+                        const t = document.createElement('canvas'); t.width = w; t.height = h; t.getContext('2d').drawImage(i, 0, 0, w, h);
+                        const original = document.createElement('canvas'); original.width = w; original.height = h; original.getContext('2d').drawImage(t, 0, 0);
+                        const id = `layer-${Date.now()}`;
+                        const newLayer = {
+                            id: id, name: 'Imagen', visible: true, opacity: 100, blendMode: 'normal', canvas: t, originalCanvas: original,
+                            filters: { grayscale: false, sepia: false, invert: false, brightness: 0, contrast: 0, blur: 0 }, position: { x: (800-w)/2, y: (600-h)/2, width: w, height: h, rotation: 0 }, type: 'image'
+                        };
+                        state.layers = [...state.layers, newLayer]; setActiveLayerId(id); updateCanvasDOM(); renderLayerList(); saveHistory();
+                        showToast('Imagen cargada', 'success');
+                    };
+                    i.src = ev.target.result;
+                };
+                r.readAsDataURL(f);
+            }
+        }
+
+        function downloadImage() {
+            const t = document.createElement('canvas'); t.width = 800; t.height = 600; const x = t.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 800, 600);
+            [...state.layers].forEach(l => {
+                if(l.visible && l.canvas) {
+                    x.save(); x.globalAlpha = l.opacity / 100; x.globalCompositeOperation = l.blendMode || 'source-over';
+                    const cx = l.position.x + l.position.width/2; const cy = l.position.y + l.position.height/2;
+                    x.translate(cx, cy); x.rotate((l.position.rotation || 0) * Math.PI / 180); x.translate(-cx, -cy);
+                    x.drawImage(l.canvas, l.position.x, l.position.y, l.position.width, l.position.height); x.restore();
+                }
+            });
+            const a = document.createElement('a'); a.download = 'foto-studio.png'; a.href = t.toDataURL(); a.click();
+            showToast('Imagen descargada', 'success');
+        }
+
+        function saveCustomShape() {
+            if(state.customShapePoints.length < 3) { showToast('Necesitas al menos 3 puntos', 'warning'); return; }
+            const xs = state.customShapePoints.map(p => p.x); const ys = state.customShapePoints.map(p => p.y);
+            const minX = Math.min(...xs); const maxX = Math.max(...xs); const minY = Math.min(...ys); const maxY = Math.max(...ys);
+            const w = maxX - minX || 1; const h = maxY - minY || 1;
+            const np = state.customShapePoints.map(p => ({ x: (p.x - minX) / w, y: (p.y - minY) / h }));
+            const n = state.customShapeName.trim() || `Fig-${Date.now()}`;
+            const sd = { name: n, points: np };
+            state.customShapesLibrary.push(sd);
+            const d = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sd));
+            const a = document.createElement('a'); a.href = d; a.download = `${n}.json`; a.click();
+            state.customShapePoints = []; state.customShapeName = "Mi Figura"; setTool(`custom-shape-${state.customShapesLibrary.length-1}`);
+            showToast('Figura guardada', 'success');
+        }
+
+        function importCustomShape(e) {
+            const f = e.target.files[0]; if(!f) return;
+            const r = new FileReader();
+            r.onload = (ev) => {
+                try {
+                    const s = JSON.parse(ev.target.result);
+                    if(s.points) { state.customShapesLibrary.push(s); showToast('Figura importada', 'success'); renderTools(); }
+                } catch(e) { showToast('Error al importar', 'error'); }
+            };
+            r.readAsText(f);
+        }
+
+        function exportActiveLayer() {
+            const layer = getActiveLayer();
+            if (!layer || (layer.type !== 'image' && layer.type !== 'merged')) return;
+            
+            // Use originalCanvas if available to preserve raw data for filters, otherwise canvas
+            const sourceCanvas = layer.originalCanvas || layer.canvas;
+            const dataUrl = sourceCanvas.toDataURL();
+            
+            const layerData = {
+                fsType: 'layer-backup',
+                name: layer.name,
+                type: layer.type,
+                opacity: layer.opacity,
+                blendMode: layer.blendMode,
+                position: layer.position,
+                filters: layer.filters,
+                imageData: dataUrl
+            };
+            
+            const blob = new Blob([JSON.stringify(layerData)], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${layer.name.replace(/\s+/g, '_')}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Capa guardada localmente', 'success');
+        }
+
+        function handleLayerImport(e) {
+            const f = e.target.files[0];
+            if(!f) return;
+            const r = new FileReader();
+            r.onload = (ev) => {
+                try {
+                    const data = JSON.parse(ev.target.result);
+                    if(data.fsType !== 'layer-backup') throw new Error('Formato inválido');
+                    
+                    const img = new Image();
+                    img.onload = () => {
+                        const w = data.position.width;
+                        const h = data.position.height;
+                        
+                        // Reconstruct Original
+                        const original = document.createElement('canvas');
+                        original.width = w; original.height = h;
+                        original.getContext('2d').drawImage(img, 0, 0, w, h);
+                        
+                        // Reconstruct Display Canvas
+                        const cvs = document.createElement('canvas');
+                        cvs.width = w; cvs.height = h;
+                        
+                        const newId = `imported-${Date.now()}`;
+                        const newLayer = {
+                            id: newId,
+                            name: data.name + ' (Import)',
+                            visible: true,
+                            opacity: data.opacity,
+                            blendMode: data.blendMode,
+                            canvas: cvs,
+                            originalCanvas: original,
+                            position: data.position,
+                            filters: data.filters || { grayscale: false, sepia: false, invert: false, brightness: 0, contrast: 0, blur: 0 },
+                            type: data.type
+                        };
+                        
+                        // Apply filters to initial display canvas
+                        newLayer.canvas.getContext('2d').drawImage(original, 0, 0); // Init content
+                        applyLayerFilters(newLayer); // Re-apply saved filters
+                        
+                        state.layers = [...state.layers, newLayer];
+                        setActiveLayerId(newId);
+                        updateCanvasDOM();
+                        renderLayerList();
+                        saveHistory();
+                        showToast('Capa importada con éxito', 'success');
+                    };
+                    img.src = data.imageData;
+                } catch(e) {
+                    console.error(e);
+                    showToast('Error al importar capa', 'error');
+                }
+            };
+            r.readAsText(f);
+            e.target.value = ''; // Reset input
+        }
+
+        function handleWheel(e) {
+            e.preventDefault();
+            if (e.deltaY < 0) state.zoom = Math.min(state.zoom + 0.1, 3.0);
+            else state.zoom = Math.max(state.zoom - 0.1, 0.5);
+            updateCanvasDOM();
+        }
+
+        function updateOverlay() {
+            const overlay = document.getElementById('selection-overlay');
+            const element = getSelectedElement();
+            if (state.tool === 'select' && element) {
+                overlay.classList.remove('hidden');
+                overlay.style.left = (element.x * state.zoom) + 'px';
+                overlay.style.top = (element.y * state.zoom) + 'px';
+                overlay.style.width = (element.width * state.zoom) + 'px';
+                overlay.style.height = (element.height * state.zoom) + 'px';
+                overlay.style.transform = `rotate(${element.rotation || 0}deg)`;
+                overlay.style.transformOrigin = 'center center';
+            } else { overlay.classList.add('hidden'); }
+            renderSvgPreview();
+        }
+
+        function renderSvgPreview() {
+            const svg = document.getElementById('svg-overlay'); svg.innerHTML = '';
+            const points = state.tool === 'crop-poly' ? state.cropPoints : state.customShapePoints;
+            if ((state.tool === 'crop-poly' || state.tool === 'create-shape') && points.length > 0) {
+                const color = state.tool === 'crop-poly' ? '#ef4444' : '#22c55e';
+                points.forEach((p, i) => {
+                    const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                    c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", 3 / state.zoom);
+                    c.setAttribute("fill", color); c.setAttribute("stroke", "white"); c.setAttribute("stroke-width", 1/state.zoom);
+                    svg.appendChild(c);
+                    if (i > 0) {
+                        const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                        l.setAttribute("x1", points[i-1].x); l.setAttribute("y1", points[i-1].y); l.setAttribute("x2", p.x); l.setAttribute("y2", p.y);
+                        l.setAttribute("stroke", color); l.setAttribute("stroke-width", 1/state.zoom); svg.appendChild(l);
+                    }
+                });
+                const last = points[points.length-1];
+                const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                l.setAttribute("x1", last.x); l.setAttribute("y1", last.y); l.setAttribute("x2", state.mousePos.x); l.setAttribute("y2", state.mousePos.y);
+                l.setAttribute("stroke", color); l.setAttribute("stroke-width", 1/state.zoom); l.setAttribute("stroke-dasharray", "4");
+                svg.appendChild(l);
+            }
+            if (state.previewShape) {
+                const s = state.previewShape;
+                const g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.setAttribute("opacity", "0.5");
+                if (s.type === 'rect') {
+                    const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    r.setAttribute("x", s.x); r.setAttribute("y", s.y); r.setAttribute("width", s.width); r.setAttribute("height", s.height);
+                    r.setAttribute("fill", "none"); r.setAttribute("stroke", state.color); r.setAttribute("stroke-width", state.brushSize/state.zoom); r.setAttribute("stroke-dasharray", "5,5");
+                    g.appendChild(r);
+                }
+                svg.appendChild(g);
+            }
+            if (state.selectionBox) {
+                const b = state.selectionBox;
+                const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                const x = b.w < 0 ? b.x + b.w : b.x; const y = b.h < 0 ? b.y + b.h : b.y;
+                r.setAttribute("x", x); r.setAttribute("y", y); r.setAttribute("width", Math.abs(b.w)); r.setAttribute("height", Math.abs(b.h));
+                r.setAttribute("fill", "rgba(234, 179, 8, 0.2)"); r.setAttribute("stroke", "#EAB308"); r.setAttribute("stroke-width", 2/state.zoom); r.setAttribute("stroke-dasharray", "4");
+                svg.appendChild(r);
+            }
+        }
+        function updateInfoPanel() {
+            const panel = document.getElementById('info-panel'); panel.innerHTML = '';
+            const selectedLayer = state.selectedId ? state.layers.find(l => l.id === state.selectedId) : null;
+            if (state.tool === 'select' && getActiveLayer()) {
+                const l = getActiveLayer();
+                if(l.type === 'text') {
+                     panel.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="type" width="16"></i>
+                            <select id="font-select-edit" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 outline-none focus:border-blue-500 cursor-pointer">
+                                ${fontOptions.map(f => `<option value="${f}" ${l.textData.fontFamily === f ? 'selected' : ''}>${f}</option>`).join('')}
+                            </select>
+                            <input type="number" id="font-size-edit" value="${Math.round(l.textData.fontSize)}" min="8" max="200" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 w-16 outline-none focus:border-blue-500">
+                            <span class="text-xs text-gray-400">px</span>
+                            <div class="w-px h-4 bg-gray-600 mx-2"></div>
+                           
+                            <!-- Edit Button -->
+                            <button id="btn-edit-text" class="bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1 border border-gray-600 mr-2" title="Editar Contenido">
+                                <i data-lucide="edit-3" width="12"></i>
+                            </button>
+
+                            <button id="btn-del-obj" class="bg-red-600 hover:bg-red-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1"><i data-lucide="trash-2" width="12"></i></button>
+                        </div>
+                    `;
+                    document.getElementById('font-select-edit').addEventListener('change', (e) => { l.textData.fontFamily = e.target.value; renderTextLayerContent(l); updateCanvasDOM(); saveHistoryDebounced(); });
+                    document.getElementById('font-size-edit').addEventListener('input', (e) => { l.textData.fontSize = parseInt(e.target.value) || 12; renderTextLayerContent(l); updateCanvasDOM(); saveHistoryDebounced(); });
+                    document.getElementById('btn-del-obj').onclick = () => deleteLayer(l.id);
+                    document.getElementById('btn-edit-text').onclick = () => startEditingText(l);
+                } else {
+                    panel.innerHTML = `<div class="flex items-center gap-3"><span class="text-xs font-bold text-blue-400">${l.name}</span><button id="btn-del-obj" class="bg-red-600 hover:bg-red-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1"><i data-lucide="trash-2" width="12"></i> Eliminar</button></div>`;
+                    document.getElementById('btn-del-obj').onclick = () => deleteLayer(l.id);
+                }
+            } else if (state.tool === 'crop-poly') {
+                panel.innerHTML = `<div class="flex items-center gap-2"><span class="text-xs font-bold text-gray-300">RECORTAR:</span><button id="btn-crop-in" class="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded flex items-center gap-1"><i data-lucide="square-dashed-bottom" width="14"></i> Interior</button><button id="btn-crop-out" class="bg-orange-600 hover:bg-orange-500 text-white px-3 py-1 rounded flex items-center gap-1"><i data-lucide="scissors-line-dashed" width="14"></i> Exterior</button><button id="btn-crop-cancel" class="bg-red-600 hover:bg-red-500 text-white p-1.5 rounded-full"><i data-lucide="x" width="16"></i></button></div>`;
+                document.getElementById('btn-crop-in').onclick = () => applyCrop('inside');
+                document.getElementById('btn-crop-out').onclick = () => applyCrop('outside');
+                document.getElementById('btn-crop-cancel').onclick = () => { state.cropPoints = []; renderSvgPreview(); };
+            } else if (state.tool === 'eraser') {
+                panel.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs uppercase font-bold text-gray-400">Borrador</span>
+                        <div class="flex bg-gray-700 rounded p-0.5 border border-gray-600">
+                            <button id="btn-eraser-round" class="p-1 rounded ${state.eraserShape === 'round' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}" title="Redondo"><i data-lucide="circle" width="14" height="14" style="fill: currentColor"></i></button>
+                            <button id="btn-eraser-square" class="p-1 rounded ${state.eraserShape === 'square' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}" title="Cuadrado"><i data-lucide="square" width="14" height="14" style="fill: currentColor"></i></button>
+                        </div>
+                        <div class="w-px h-4 bg-gray-600"></div>
+                        <div class="flex items-center gap-2"><span class="text-xs text-gray-300">Opacidad:</span><input type="range" min="1" max="100" value="${state.eraserOpacity}" id="eraser-opacity" class="w-20 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"/><span class="text-xs w-6 font-mono text-right" id="eraser-opacity-val">${state.eraserOpacity}%</span></div>
+                    </div>
+                `;
+                document.getElementById('btn-eraser-round').onclick = () => { state.eraserShape = 'round'; updateInfoPanel(); };
+                document.getElementById('btn-eraser-square').onclick = () => { state.eraserShape = 'square'; updateInfoPanel(); };
+                const opacityInput = document.getElementById('eraser-opacity');
+                opacityInput.oninput = (e) => { state.eraserOpacity = parseInt(e.target.value); document.getElementById('eraser-opacity-val').innerText = state.eraserOpacity + '%'; };
+            } else if (state.tool === 'brush') {
+                panel.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs uppercase font-bold text-gray-400">Pincel</span>
+                        <div class="flex bg-gray-700 rounded p-0.5 border border-gray-600">
+                            <button id="btn-brush-round" class="p-1 rounded ${state.brushType === 'round' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}" title="Redondo"><i data-lucide="circle" width="14" height="14" style="fill: currentColor"></i></button>
+                            <button id="btn-brush-square" class="p-1 rounded ${state.brushType === 'square' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}" title="Cuadrado"><i data-lucide="square" width="14" height="14" style="fill: currentColor"></i></button>
+                            <button id="btn-brush-pen" class="p-1 rounded ${state.brushType === 'pen' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}" title="Pluma (Caligrafía)"><i data-lucide="pen-tool" width="14" height="14"></i></button>
+                            <button id="btn-brush-spray" class="p-1 rounded ${state.brushType === 'spray' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}" title="Spray"><i data-lucide="spray-can" width="14" height="14"></i></button>
+                        </div>
+                        <div class="w-px h-4 bg-gray-600"></div>
+                        <div class="flex items-center gap-2"><span class="text-xs text-gray-300">Opacidad:</span><input type="range" min="1" max="100" value="${state.brushOpacity}" id="brush-opacity" class="w-20 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"/><span class="text-xs w-6 font-mono text-right" id="brush-opacity-val">${state.brushOpacity}%</span></div>
+                    </div>
+                `;
+                document.getElementById('btn-brush-round').onclick = () => { state.brushType = 'round'; updateInfoPanel(); };
+                document.getElementById('btn-brush-square').onclick = () => { state.brushType = 'square'; updateInfoPanel(); };
+                document.getElementById('btn-brush-pen').onclick = () => { state.brushType = 'pen'; updateInfoPanel(); };
+                document.getElementById('btn-brush-spray').onclick = () => { state.brushType = 'spray'; updateInfoPanel(); };
+                const opacityInput = document.getElementById('brush-opacity');
+                opacityInput.oninput = (e) => { state.brushOpacity = parseInt(e.target.value); document.getElementById('brush-opacity-val').innerText = state.brushOpacity + '%'; };
+            } else if (state.tool === 'wand') {
+                panel.innerHTML = `<div class="flex items-center gap-3"><span class="text-xs uppercase font-bold text-gray-400">Varita</span><div class="flex items-center gap-2 border-r border-gray-600 pr-3"><span class="text-xs text-gray-300">Tol:</span><input type="range" min="0" max="100" value="${state.tolerance}" id="tol-input" class="w-20 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-purple-500"/><span class="text-xs w-6 font-mono text-right" id="tol-val">${state.tolerance}</span></div><label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-contiguous" ${state.wandContiguous ? 'checked' : ''} class="accent-purple-500"><span class="text-xs text-gray-300">Contiguo</span></label></div>`;
+                document.getElementById('tol-input').oninput = (e) => { state.tolerance = parseInt(e.target.value); document.getElementById('tol-val').innerText = state.tolerance; };
+                document.getElementById('chk-contiguous').onchange = (e) => { state.wandContiguous = e.target.checked; };
+            } else if (state.tool === 'fill') {
+                panel.innerHTML = `<div class="flex items-center gap-3"><span class="text-xs uppercase font-bold text-gray-400">Tolerancia</span><input type="range" min="0" max="100" value="${state.tolerance}" id="tol-input" class="w-24 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-purple-500"/><span class="text-xs w-6 font-mono text-right" id="tol-val">${state.tolerance}</span></div>`;
+                document.getElementById('tol-input').oninput = (e) => { state.tolerance = parseInt(e.target.value); document.getElementById('tol-val').innerText = state.tolerance; };
+            } else if (state.tool === 'text') {
+                panel.innerHTML = `<div class="flex items-center gap-2"><i data-lucide="type" width="16"></i><span class="text-xs font-bold text-gray-300">FUENTE:</span><select id="font-select" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 outline-none focus:border-blue-500 cursor-pointer">${fontOptions.map(f => `<option value="${f}" ${state.fontFamily === f ? 'selected' : ''}>${f}</option>`).join('')}</select><input type="number" id="font-size-input" value="${state.fontSize}" min="8" max="200" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 w-16 outline-none focus:border-blue-500"><span class="text-xs text-gray-400">px</span></div>`;
+                document.getElementById('font-select').addEventListener('change', (e) => { state.fontFamily = e.target.value; if(state.typingPos) document.getElementById('text-tool-input').style.fontFamily = state.fontFamily; });
+                document.getElementById('font-size-input').addEventListener('input', (e) => { state.fontSize = parseInt(e.target.value) || 12; if(state.typingPos) document.getElementById('text-tool-input').style.fontSize = (state.fontSize * state.zoom) + 'px'; });
+            } else if (state.tool === 'create-shape') {
+                panel.innerHTML = `<div class="flex items-center gap-2"><span class="text-xs font-bold text-green-400 animate-pulse">CREANDO FIGURA:</span><input type="text" id="shape-name" value="${state.customShapeName}" class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 w-24 focus:outline-none focus:border-blue-500"/><button id="btn-save-shape" title="Guardar" class="bg-blue-600 hover:bg-blue-500 text-white p-1.5 rounded-full"><i data-lucide="disc" width="16"></i></button><button id="btn-cancel-shape" title="Cancelar" class="bg-gray-600 hover:bg-gray-500 text-white p-1.5 rounded-full"><i data-lucide="x" width="16"></i></button></div>`;
+                document.getElementById('shape-name').oninput = (e) => state.customShapeName = e.target.value;
+                document.getElementById('btn-save-shape').onclick = saveCustomShape;
+                document.getElementById('btn-cancel-shape').onclick = () => { state.customShapePoints = []; setTool('select'); };
+            } else { panel.innerHTML = `<div class="flex items-center gap-3"><span class="text-xs uppercase font-bold text-gray-400">Herramienta:</span><span class="text-sm text-blue-400 font-semibold capitalize">${state.tool}</span></div>`; }
+            lucide.createIcons();
+        }
+        function hexToRgb(h) { const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h); return r ? { r: parseInt(r[1], 16), g: parseInt(r[2], 16), b: parseInt(r[3], 16) } : null; }
+    </script>
+</body>
+</html>
