@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Comparativo de Modelos LLM</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #e2e8f0;
+        }
+        .card {
+            background-color: #1e293b; /* Slate 800 */
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid #334155;
+        }
+        .info-box {
+            background-color: #334155;
+            border-left: 4px solid #3b82f6;
+        }
+        .btn-active {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .btn-inactive {
+            background-color: #334155;
+            color: #94a3b8;
+        }
+        .btn-inactive:hover {
+            background-color: #475569;
+            color: white;
+        }
+        canvas {
+            max-height: 250px; /* Reduced slightly to fit more charts */
+        }
+        optgroup {
+            color: #94a3b8;
+            font-weight: bold;
+            background-color: #1e293b;
+        }
+        option {
+            color: white;
+            padding: 10px;
+        }
+        /* Documentation Styles */
+        .doc-section {
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 2rem;
+        }
+        .doc-title {
+            color: #60a5fa;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+        .doc-subtitle {
+            color: #e2e8f0;
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .doc-text {
+            color: #94a3b8;
+            line-height: 1.7;
+            margin-bottom: 1rem;
+        }
+        .doc-quote {
+            background-color: #1e293b;
+            border-left: 4px solid #a855f7;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-style: italic;
+            color: #e2e8f0;
+        }
+        /* Highlight specific for GPS Time */
+        .gps-highlight {
+            border: 1px solid #f59e0b; /* Amber border */
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <!-- Header & Navigation -->
+    <header class="mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-white mb-2"><i class="fa-solid fa-microchip text-blue-500 mr-2"></i>Benchmarking de Modelos LLM</h1>
+            <p class="text-slate-400 text-sm">Hardware Base: NVIDIA GeForce RTX 5060 Ti (16GB VRAM)</p>
+        </div>
+        
+        <!-- Main View Switcher (Dashboard vs Docs) -->
+        <div class="flex bg-slate-800 p-1 rounded-lg border border-slate-700">
+            <button id="nav-dashboard" onclick="switchView('dashboard')" class="px-6 py-2 rounded-md font-medium transition-all btn-active">
+                <i class="fa-solid fa-chart-line mr-2"></i>Dashboard
+            </button>
+            <button id="nav-docs" onclick="switchView('docs')" class="px-6 py-2 rounded-md font-medium transition-all btn-inactive">
+                <i class="fa-solid fa-book mr-2"></i>Documentación / Manual
+            </button>
+        </div>
+    </header>
+
+    <!-- VIEW: DASHBOARD -->
+    <div id="view-dashboard">
+        <!-- Controls & Info -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            
+            <!-- Controls -->
+            <div class="card p-6 lg:col-span-1">
+                <h3 class="text-lg font-semibold mb-4 text-white border-b border-slate-700 pb-2">Configuración</h3>
+                
+                <div class="flex justify-between mb-4">
+                     <!-- Inner Mode Switcher (Compare vs Single) -->
+                    <div class="flex bg-slate-900 p-1 rounded-lg border border-slate-700 w-full">
+                        <button id="btn-mode-compare" onclick="setMode('compare')" class="flex-1 py-1 text-sm rounded transition-all btn-active">
+                            Comparativa
+                        </button>
+                        <button id="btn-mode-single" onclick="setMode('single')" class="flex-1 py-1 text-sm rounded transition-all btn-inactive">
+                            Individual
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Selector for Compare Mode -->
+                <div id="control-test" class="w-full mb-4">
+                    <label class="block text-sm font-medium text-slate-400 mb-2">Seleccionar Categoría / Escenario</label>
+                    <select id="select-test" onchange="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="average" class="font-bold text-yellow-400">★ Media Global (Todas las pruebas)</option>
+                        
+                        <optgroup label="1. Rendimiento Computacional">
+                            <option value="gps">Explica cómo funciona un satélite GPS</option>
+                        </optgroup>
+
+                        <optgroup label="2. Comparativas de Coste">
+                            <option value="stress">Coste por hora de inferencia (Estrés 60s)</option>
+                            <option value="long">Coste por millón de tokens (Gen. 2000 tok)</option>
+                        </optgroup>
+
+                        <optgroup label="3. Comparativa de Calidad (Acertijos)">
+                            <option value="riddle1">Acertijo 1: El Hotel</option>
+                            <option value="riddle2">Acertijo 2: Los Sombreros</option>
+                            <option value="riddle3">Acertijo 3: Lobo, Cabra y Repollo</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <!-- Selector for Single Mode (Hidden by default) -->
+                <div id="control-model" class="w-full mb-4 hidden">
+                    <label class="block text-sm font-medium text-slate-400 mb-2">Seleccionar Modelo</label>
+                    <select id="select-model" onchange="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="Granite4 tiny">Granite4 tiny</option>
+                        <option value="Qwen3 4b">Qwen3 4b</option>
+                        <option value="Gemma 3">Gemma 3</option>
+                    </select>
+                </div>
+
+                <div class="text-sm text-slate-500">
+                    <span id="scenario-desc">Comparando todos los modelos.</span>
+                </div>
+            </div>
+
+            <!-- Prompt & Category Details -->
+            <div class="card p-6 lg:col-span-2 flex flex-col">
+                <div class="flex justify-between items-start mb-2 border-b border-slate-700 pb-2">
+                    <h3 class="text-lg font-semibold text-white">Detalles de la Prueba</h3>
+                    <span id="test-category-badge" class="bg-blue-900 text-blue-200 text-xs font-semibold px-2.5 py-0.5 rounded border border-blue-700">
+                        Rendimiento Computacional
+                    </span>
+                </div>
+                
+                <div class="flex-grow">
+                    <p class="text-sm text-slate-400 mb-1 font-semibold uppercase tracking-wider">Prompt Utilizado:</p>
+                    <div class="info-box p-3 rounded text-slate-200 text-sm italic h-full overflow-y-auto max-h-32">
+                        "<span id="test-prompt">Explica cómo funciona un satélite GPS</span>"
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            <!-- Chart: First Token (ALWAYS VISIBLE) -->
+            <div class="card p-5">
+                <h3 class="text-lg font-semibold mb-4 text-yellow-400 border-b border-slate-700 pb-2">
+                    <i class="fa-solid fa-stopwatch mr-2"></i>First Token (s)
+                </h3>
+                <div class="relative h-64">
+                    <canvas id="chartFirstToken"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart: Generation Time (GPS ONLY) -->
+            <div class="card p-5 hidden" id="card-gen-time">
+                <h3 class="text-lg font-semibold mb-4 text-orange-400 border-b border-slate-700 pb-2">
+                    <i class="fa-regular fa-clock mr-2"></i>Tiempo Generación (s)
+                </h3>
+                <div class="relative h-64">
+                    <canvas id="chartGenTime"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart: Speed -->
+            <div class="card p-5">
+                <h3 class="text-lg font-semibold mb-4 text-blue-400 border-b border-slate-700 pb-2">
+                    <i class="fa-solid fa-bolt mr-2"></i>Velocidad (Tok/s)
+                </h3>
+                <div class="relative h-64">
+                    <canvas id="chartSpeed"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart: System -->
+            <div class="card p-5">
+                <h3 class="text-lg font-semibold mb-4 text-green-400 border-b border-slate-700 pb-2">
+                    <i class="fa-solid fa-memory mr-2"></i>Recursos (CPU/RAM)
+                </h3>
+                <div class="relative h-64">
+                    <canvas id="chartSystem"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart: GPU -->
+            <div class="card p-5">
+                <h3 class="text-lg font-semibold mb-4 text-purple-400 border-b border-slate-700 pb-2">
+                    <i class="fa-solid fa-film mr-2"></i>Carga GPU
+                </h3>
+                <div class="relative h-64">
+                    <canvas id="chartGpu"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart: Thermals -->
+            <div class="card p-5">
+                <h3 class="text-lg font-semibold mb-4 text-red-400 border-b border-slate-700 pb-2">
+                    <i class="fa-solid fa-temperature-three-quarters mr-2"></i>Temperatura
+                </h3>
+                <div class="relative h-64">
+                    <canvas id="chartTemp"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Table -->
+        <div class="card mt-8 p-6 overflow-x-auto">
+            <h3 class="text-lg font-semibold mb-4 text-white">Datos Detallados</h3>
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="text-slate-400 border-b border-slate-700" id="table-header-row">
+                        <!-- Headers injected via JS -->
+                    </tr>
+                </thead>
+                <tbody id="table-body" class="text-slate-200">
+                    <!-- Rows injected via JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- VIEW: DOCUMENTATION -->
+    <div id="view-docs" class="hidden">
+        <div class="card p-8 max-w-4xl mx-auto">
+            
+            <div class="doc-section">
+                <h2 class="doc-title">Introducción y Comparativa</h2>
+                <p class="doc-text">
+                    Primero de todo haremos una comparativa de 3 modelos de <strong>Granite 4h tiny</strong>, <strong>Qwen3 4b</strong> y <strong>Gemma 3</strong>. Les compararemos en base a diferentes pruebas y diferentes comparaciones (tk/s, rendimiento, coste…).
+                </p>
+                <div class="mt-4 p-4 bg-blue-900/30 rounded border border-blue-500/30">
+                    <p class="text-sm text-blue-200 font-italic">
+                        Nota: Todos los cálculos y simulaciones de esta comparativa se basan en el uso de hardware específico (NVIDIA GeForce RTX 5060 Ti con 16GB de VRAM) para garantizar la coherencia de los datos.
+                    </p>
+                </div>
+            </div>
+
+            <div class="doc-section">
+                <h2 class="doc-title">1. Prompts para comparativas de rendimiento computacional</h2>
+                <div class="doc-quote">
+                    Genera una respuesta de exactamente 100 tokens a esta instrucción: "Explica cómo funciona un satélite GPS”
+                </div>
+                <p class="doc-text">
+                    Mide el tiempo exacto desde la recepción del prompt hasta el final de la generación. Se realiza esta prueba con fines de que midamos en las mismas condiciones una serie de parámetros relacionados con el rendimiento computacional.
+                </p>
+            </div>
+
+            <div class="doc-section">
+                <h2 class="doc-title">2. Prompts para comparativas de coste</h2>
+                
+                <h3 class="doc-subtitle">2.1 Coste por hora de inferencia</h3>
+                <div class="doc-quote">
+                    Genera textos de 100 tokens repetidamente durante 60 segundos. Cada respuesta debe ser distinta. Cuenta cuántas respuestas produce por minuto.
+                </div>
+                <p class="doc-text">
+                    Pese a que ningún modelo fue capaz de realizar esta prueba de manera autónoma, podemos medir su comportamiento de manera teórica extrapolando su rendimiento en el prompt anterior (GPS). Es decir, el cálculo teórico consistiría en dividir 60 segundos entre el tiempo de espera promedio por generación y multiplicar el resultado por la cantidad de tokens por segundo. No obstante, para efectos de esta demostración, nos centraremos en el análisis de las respuestas directas generadas en los prompts actuales.
+                </p>
+
+                <h3 class="doc-subtitle mt-6">2.2 Coste por millón de tokens generados</h3>
+                <div class="doc-quote">
+                    Genera un texto coherente de exactamente 2000 tokens sobre cualquier tema científico. No incluyas listas, solo texto continuo.
+                </div>
+                <p class="doc-text">
+                    Al igual que el anterior (con la diferencia que este funciona correctamente) se basa en una prueba en la cual el resultado es medir el número de tokens que puede generar el modelo de forma sostenida. Todos los modelos pasaron esta prueba sin problemas operativos.
+                </p>
+            </div>
+
+            <div class="doc-section">
+                <h2 class="doc-title">3. Prompts para comparativa de calidad</h2>
+                <p class="doc-text">
+                    Mediremos el nivel de alucinación o consistencia de los modelos. En este escenario, es relevante observar cómo ciertos modelos pueden fallar o entrar en bucles debido a alucinaciones.
+                </p>
+
+                <h3 class="doc-subtitle">Acertijos Utilizados</h3>
+                
+                <div class="mt-4">
+                    <h4 class="font-bold text-white">El Hotel (Matemáticas)</h4>
+                    <p class="doc-text text-sm italic mb-2">
+                        "Imagina la siguiente situación cuidadosamente y resuélvela paso a paso, explicando cada detalle de tu razonamiento. Tres personas entran a un hotel y pagan 30 dólares por una habitación. Después de irse a sus habitaciones, el recepcionista se da cuenta de que cobraron de más y decide devolver 5 dólares. Para simplificar la devolución, cada persona recibe 1 dólar, y el recepcionista guarda 2 dólares. Ahora, hay quienes dicen que falta 1 dólar, porque sumando los 3 dólares que recibieron las personas más los 2 que guardó el recepcionista da 27 dólares, y no 30. Explica cuidadosamente paso a paso dónde está realmente el dinero, por qué parece faltar 1 dólar y cómo se resuelve el aparente misterio."
+                    </p>
+                </div>
+
+                <div class="mt-4">
+                    <h4 class="font-bold text-white">Los Sombreros (Lógica)</h4>
+                    <p class="doc-text text-sm italic mb-2">
+                        "Tres personas están en una habitación y cada una recibe un sombrero rojo o azul al azar. Saben que hay dos sombreros rojos y uno azul, pero no pueden ver su propio sombrero. Se les pregunta: “¿De qué color es tu sombrero?” La primera persona dice: “No sé”. La segunda persona dice: “No sé”. La tercera persona, después de escuchar a los otros dos, dice: “Sé de qué color es mi sombrero”. Pregunta: ¿De qué color es el sombrero de la tercera persona y cómo dedujo la respuesta? Explica cada paso del razonamiento."
+                    </p>
+                </div>
+
+                <div class="mt-4">
+                    <h4 class="font-bold text-white">Lobo, Cabra y Repollo (Planificación)</h4>
+                    <p class="doc-text text-sm italic mb-2">
+                        "Un granjero quiere cruzar un río con un lobo, una cabra y un repollo. Solo puede llevar un objeto a la vez en su bote. Si deja al lobo con la cabra, el lobo se la comerá. Si deja la cabra con el repollo, la cabra se lo comerá. Pregunta: ¿Cómo puede cruzar el río sin que nada sea devorado? Explica paso a paso la estrategia y por qué funciona."
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- 1. DATA SOURCE (Updated with exact values from prompt) ---
+        const db = {
+            "gps": {
+                name: "Explicación GPS (Rendimiento)",
+                category: "1. Rendimiento Computacional",
+                prompt: "Genera una respuesta de exactamente 100 tokens a esta instrucción: 'Explica cómo funciona un satélite GPS'",
+                models: {
+                    "Granite4 tiny": { ram: 4.40, cpu: 5.60, tokSec: 67.79, firstTok: 0.61, vram: 5.2, gpuLoad: 48, temp: 42, genTime: 0.05 },
+                    "Qwen3 4b":      { ram: 4.10, cpu: 5.89, tokSec: 97.97, firstTok: 0.54, vram: 4.5, gpuLoad: 72, temp: 48, genTime: 2.3 },
+                    "Gemma 3":       { ram: 4.77, cpu: 8.76, tokSec: 39.60, firstTok: 0.93, vram: 9.1, gpuLoad: 35, temp: 40, genTime: 2.1 }
+                }
+            },
+            "stress": {
+                name: "Coste por hora (Estrés 60s)",
+                category: "2. Comparativas de Coste",
+                prompt: "Genera textos de 100 tokens repetidamente durante 60 segundos. Cada respuesta debe ser distinta. Cuenta cuántas respuestas produce por minuto.",
+                models: {
+                    "Granite4 tiny": { ram: 4.73, cpu: 8.25, tokSec: 97.80, firstTok: 0.55, vram: 5.3, gpuLoad: 78, temp: 54 },
+                    "Qwen3 4b":      { ram: 4.39, cpu: 8.41, tokSec: 67.75, firstTok: 0.63, vram: 4.6, gpuLoad: 51, temp: 46 },
+                    "Gemma 3":       { ram: 4.78, cpu: 8.50, tokSec: 39.28, firstTok: 0.86, vram: 9.2, gpuLoad: 33, temp: 43 }
+                }
+            },
+            "long": {
+                name: "Coste por millón (Gen. 2000 tok)",
+                category: "2. Comparativas de Coste",
+                prompt: "Genera un texto coherente de exactamente 2000 tokens sobre cualquier tema científico. No incluyas listas, solo texto continuo.",
+                models: {
+                    "Granite4 tiny": { ram: 4.41, cpu: 8.30, tokSec: 63.46, firstTok: 0.15, vram: 5.2, gpuLoad: 45, temp: 51 },
+                    "Qwen3 4b":      { ram: 2.73, cpu: 8.33, tokSec: 92.40, firstTok: 0.38, vram: 3.8, gpuLoad: 82, temp: 59 },
+                    "Gemma 3":       { ram: 4.78, cpu: 8.27, tokSec: 38.99, firstTok: 1.40, vram: 9.2, gpuLoad: 34, temp: 47 }
+                }
+            },
+            "riddle1": {
+                name: "Calidad: Acertijo Hotel",
+                category: "3. Comparativa de Calidad (Acertijo)",
+                prompt: "Tres personas entran a un hotel y pagan 30 dólares... el recepcionista guarda 2 dólares... Explica cuidadosamente paso a paso dónde está realmente el dinero, por qué parece faltar 1 dólar.",
+                models: {
+                    "Granite4 tiny": { ram: 4.42, cpu: 7.99, tokSec: 67.27, firstTok: 0.15, vram: 5.2, gpuLoad: 49, temp: 43 },
+                    "Qwen3 4b":      { ram: 2.72, cpu: 8.27, tokSec: 72.20, firstTok: 0.20, vram: 4.1, gpuLoad: 92, temp: 55 }, 
+                    "Gemma 3":       { ram: 4.79, cpu: 8.18, tokSec: 38.98, firstTok: 0.93, vram: 9.1, gpuLoad: 34, temp: 40 }
+                }
+            },
+            "riddle2": {
+                name: "Calidad: Acertijo Sombreros",
+                category: "3. Comparativa de Calidad (Acertijo)",
+                prompt: "Tres personas están en una habitación... Saben que hay dos sombreros rojos y uno azul... Pregunta: ¿De qué color es el sombrero de la tercera persona y cómo dedujo la respuesta?",
+                models: {
+                    "Granite4 tiny": { ram: 4.39, cpu: 8.04, tokSec: 65.58, firstTok: 0.42, vram: 5.2, gpuLoad: 47, temp: 42 },
+                    "Qwen3 4b":      { ram: 2.72, cpu: 8.57, tokSec: 60.20, firstTok: 0.60, vram: 4.2, gpuLoad: 88, temp: 58 },
+                    "Gemma 3":       { ram: 4.78, cpu: 8.28, tokSec: 39.44, firstTok: 0.23, vram: 9.2, gpuLoad: 35, temp: 41 }
+                }
+            },
+            "riddle3": {
+                name: "Calidad: Acertijo Lobo/Cabra",
+                category: "3. Comparativa de Calidad (Acertijo)",
+                prompt: "Un granjero quiere cruzar un río con un lobo, una cabra y un repollo... Pregunta: ¿Cómo puede cruzar el río sin que nada sea devorado? Explica paso a paso la estrategia.",
+                models: {
+                    "Granite4 tiny": { ram: 4.41, cpu: 8.53, tokSec: 64.70, firstTok: 0.21, vram: 5.3, gpuLoad: 46, temp: 43 },
+                    "Qwen3 4b":      { ram: 2.73, cpu: 6.11, tokSec: 70.10, firstTok: 0.80, vram: 4.0, gpuLoad: 99, temp: 61 },
+                    "Gemma 3":       { ram: 4.78, cpu: 8.29, tokSec: 39.29, firstTok: 0.14, vram: 9.1, gpuLoad: 33, temp: 39 }
+                }
+            }
+        };
+
+        // --- 2. CONFIGURATION & STATE ---
+        let currentMode = 'compare'; // 'compare' or 'single'
+        const modelColors = {
+            "Granite4 tiny": { border: '#3b82f6', bg: 'rgba(59, 130, 246, 0.5)' }, // Blue
+            "Qwen3 4b":      { border: '#ef4444', bg: 'rgba(239, 68, 68, 0.5)' },   // Red (Danger/Fast)
+            "Gemma 3":       { border: '#10b981', bg: 'rgba(16, 185, 129, 0.5)' }   // Emerald (Stable)
+        };
+
+        let charts = {};
+
+        // --- 3. VIEW LOGIC ---
+        function switchView(viewName) {
+            const dashboard = document.getElementById('view-dashboard');
+            const docs = document.getElementById('view-docs');
+            const btnDash = document.getElementById('nav-dashboard');
+            const btnDocs = document.getElementById('nav-docs');
+
+            if (viewName === 'dashboard') {
+                dashboard.classList.remove('hidden');
+                docs.classList.add('hidden');
+                btnDash.classList.add('btn-active');
+                btnDash.classList.remove('btn-inactive');
+                btnDocs.classList.add('btn-inactive');
+                btnDocs.classList.remove('btn-active');
+            } else {
+                dashboard.classList.add('hidden');
+                docs.classList.remove('hidden');
+                btnDash.classList.add('btn-inactive');
+                btnDash.classList.remove('btn-active');
+                btnDocs.classList.add('btn-active');
+                btnDocs.classList.remove('btn-inactive');
+            }
+        }
+
+        // --- 4. CHART INITIALIZATION ---
+        function initCharts() {
+            Chart.defaults.color = '#94a3b8';
+            Chart.defaults.borderColor = '#334155';
+            
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            };
+
+            // 1. First Token (NEW - Always Visible)
+            charts.firstTok = new Chart(document.getElementById('chartFirstToken'), {
+                type: 'bar',
+                data: { labels: [], datasets: [] },
+                options: {
+                    ...commonOptions,
+                    scales: { y: { title: { display: true, text: 'Segundos (Menos es mejor)' } } }
+                }
+            });
+
+            // 2. Generation Time (NEW - GPS Only)
+            charts.genTime = new Chart(document.getElementById('chartGenTime'), {
+                type: 'bar',
+                data: { labels: [], datasets: [] },
+                options: {
+                    ...commonOptions,
+                    scales: { y: { title: { display: true, text: 'Segundos' } } }
+                }
+            });
+
+            charts.speed = new Chart(document.getElementById('chartSpeed'), {
+                type: 'bar',
+                data: { labels: [], datasets: [] },
+                options: {
+                    ...commonOptions,
+                    scales: { y: { title: { display: true, text: 'Tokens / Segundo' } } }
+                }
+            });
+
+            charts.system = new Chart(document.getElementById('chartSystem'), {
+                type: 'bar',
+                data: { labels: [], datasets: [] },
+                options: {
+                    ...commonOptions,
+                    scales: { y: { title: { display: true, text: 'Uso' } } }
+                }
+            });
+
+            charts.gpu = new Chart(document.getElementById('chartGpu'), {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    ...commonOptions,
+                    scales: { y: { title: { display: true, text: 'Carga % / GB' } } }
+                }
+            });
+
+            charts.temp = new Chart(document.getElementById('chartTemp'), {
+                type: 'bar',
+                data: { labels: [], datasets: [] },
+                options: {
+                    ...commonOptions,
+                    scales: { y: { title: { display: true, text: 'Temperatura °C' } } }
+                }
+            });
+        }
+
+        // --- 5. DATA PROCESSING ---
+        function setMode(mode) {
+            currentMode = mode;
+            const btnCompare = document.getElementById('btn-mode-compare');
+            const btnSingle = document.getElementById('btn-mode-single');
+            
+            if(mode === 'compare') {
+                btnCompare.className = "flex-1 py-1 text-sm rounded transition-all btn-active";
+                btnSingle.className = "flex-1 py-1 text-sm rounded transition-all btn-inactive";
+                document.getElementById('control-test').classList.remove('hidden');
+                document.getElementById('control-model').classList.add('hidden');
+                document.getElementById('scenario-desc').innerText = "Comparando todos los modelos en la tarea seleccionada.";
+            } else {
+                btnCompare.className = "flex-1 py-1 text-sm rounded transition-all btn-inactive";
+                btnSingle.className = "flex-1 py-1 text-sm rounded transition-all btn-active";
+                document.getElementById('control-test').classList.add('hidden');
+                document.getElementById('control-model').classList.remove('hidden');
+                document.getElementById('scenario-desc').innerText = "Analizando estabilidad de un modelo a través de distintos escenarios.";
+            }
+            updateDashboard();
+        }
+
+        function calculateAverages() {
+            const models = ["Granite4 tiny", "Qwen3 4b", "Gemma 3"];
+            const aggregates = {};
+            models.forEach(m => {
+                aggregates[m] = { ram: 0, cpu: 0, tokSec: 0, vram: 0, gpuLoad: 0, temp: 0, firstTok: 0, count: 0 };
+            });
+            Object.keys(db).forEach(key => {
+                const test = db[key];
+                models.forEach(m => {
+                    const d = test.models[m];
+                    if(d) {
+                        aggregates[m].ram += d.ram;
+                        aggregates[m].cpu += d.cpu;
+                        aggregates[m].tokSec += d.tokSec;
+                        aggregates[m].vram += d.vram;
+                        aggregates[m].gpuLoad += d.gpuLoad;
+                        aggregates[m].temp += d.temp;
+                        aggregates[m].firstTok += d.firstTok;
+                        aggregates[m].count++;
+                    }
+                });
+            });
+            const result = {};
+            models.forEach(m => {
+                const c = aggregates[m].count;
+                result[m] = {
+                    ram: parseFloat((aggregates[m].ram / c).toFixed(2)),
+                    cpu: parseFloat((aggregates[m].cpu / c).toFixed(2)),
+                    tokSec: parseFloat((aggregates[m].tokSec / c).toFixed(2)),
+                    vram: parseFloat((aggregates[m].vram / c).toFixed(2)),
+                    gpuLoad: Math.round(aggregates[m].gpuLoad / c),
+                    temp: Math.round(aggregates[m].temp / c),
+                    firstTok: parseFloat((aggregates[m].firstTok / c).toFixed(2))
+                };
+            });
+            return result;
+        }
+
+        function updateDashboard() {
+            if (currentMode === 'compare') updateCompareMode();
+            else updateSingleMode();
+        }
+
+        function updateCompareMode() {
+            const testKey = document.getElementById('select-test').value;
+            let data, promptText, categoryText, nameText;
+
+            // Handle GPS Specific Logic for Chart Visibility
+            const genTimeCard = document.getElementById('card-gen-time');
+            const isGps = (testKey === 'gps');
+            
+            if (isGps) {
+                genTimeCard.classList.remove('hidden');
+            } else {
+                genTimeCard.classList.add('hidden');
+            }
+
+            if (testKey === 'average') {
+                data = calculateAverages();
+                promptText = "Cálculo matemático del promedio de todas las métricas.";
+                categoryText = "Resumen Global de Rendimiento";
+                nameText = "Media Global";
+            } else {
+                const testData = db[testKey];
+                data = testData.models;
+                promptText = testData.prompt;
+                categoryText = testData.category;
+                nameText = testData.name;
+            }
+
+            const labels = Object.keys(data);
+            document.getElementById('test-category-badge').innerText = categoryText;
+            document.getElementById('test-prompt').innerText = promptText;
+
+            updateCharts(labels, data, true, isGps);
+            updateTable(labels.map(name => ({name, ...data[name]})), testKey);
+        }
+
+        function updateSingleMode() {
+            const modelName = document.getElementById('select-model').value;
+            const testKeys = Object.keys(db);
+            const labels = testKeys.map(k => db[k].name);
+            const modelData = testKeys.map(k => db[k].models[modelName]);
+            const color = modelColors[modelName];
+
+            // In single mode, we hide the GPS gen time chart because it doesn't make sense across all tests
+            document.getElementById('card-gen-time').classList.add('hidden');
+
+            document.getElementById('test-category-badge').innerText = "Análisis Histórico";
+            document.getElementById('test-prompt').innerText = "Vista general de rendimiento a través de todas las pruebas.";
+
+            // Standard Charts
+            charts.speed.data = {
+                labels: labels,
+                datasets: [{
+                    label: `Velocidad ${modelName} (Tok/s)`,
+                    data: modelData.map(d => d.tokSec),
+                    borderColor: color.border,
+                    backgroundColor: color.bg,
+                    tension: 0.3,
+                    fill: true,
+                    type: 'line'
+                }]
+            };
+
+            // First Token Chart (Line for trend)
+            charts.firstTok.config.type = 'line';
+            charts.firstTok.data = {
+                labels: labels,
+                datasets: [{
+                    label: `First Token (s)`,
+                    data: modelData.map(d => d.firstTok),
+                    borderColor: '#facc15', // Yellow
+                    backgroundColor: 'rgba(250, 204, 21, 0.2)',
+                    tension: 0.3,
+                    fill: true
+                }]
+            };
+
+            charts.system.data = {
+                labels: labels,
+                datasets: [
+                    { label: 'RAM (GB)', data: modelData.map(d => d.ram), borderColor: '#64748b', type: 'line' },
+                    { label: 'CPU (%)', data: modelData.map(d => d.cpu), borderColor: '#94a3b8', type: 'line', borderDash: [5,5] }
+                ]
+            };
+            charts.gpu.config.type = 'line';
+            charts.gpu.data = {
+                labels: labels,
+                datasets: [
+                    { label: 'VRAM (GB)', data: modelData.map(d => d.vram), borderColor: '#a855f7' },
+                    { label: 'Carga 3D (%)', data: modelData.map(d => d.gpuLoad), borderColor: '#d8b4fe', yAxisID: 'y1' }
+                ]
+            };
+            charts.gpu.options.scales.y1 = { position: 'right', grid: {drawOnChartArea: false}, title: {display:true, text: '% Carga'} };
+            charts.temp.data = {
+                labels: labels,
+                datasets: [{
+                    label: 'Temperatura (°C)',
+                    data: modelData.map(d => d.temp),
+                    backgroundColor: modelData.map(d => d.temp > 55 ? 'rgba(239, 68, 68, 0.8)' : color.bg),
+                }]
+            };
+            
+            updateChartsGlobal();
+            updateTable(modelData.map((d, i) => ({name: labels[i], ...d})), 'single');
+        }
+
+        function updateCharts(labels, data, isCompare, isGps) {
+            const speeds = labels.map(l => data[l].tokSec);
+            const rams = labels.map(l => data[l].ram);
+            const cpus = labels.map(l => data[l].cpu);
+            const vrams = labels.map(l => data[l].vram);
+            const gpus = labels.map(l => data[l].gpuLoad);
+            const temps = labels.map(l => data[l].temp);
+            const firstToks = labels.map(l => data[l].firstTok);
+
+            // 1. First Token Chart (Bar)
+            charts.firstTok.config.type = 'bar';
+            charts.firstTok.data = {
+                labels: labels,
+                datasets: [{
+                    label: 'First Token (s)',
+                    data: firstToks,
+                    backgroundColor: labels.map(l => 'rgba(250, 204, 21, 0.6)'), // Yellowish
+                    borderColor: labels.map(l => '#facc15'),
+                    borderWidth: 1
+                }]
+            };
+
+            // 2. Gen Time Chart (Only if GPS)
+            if (isGps) {
+                const genTimes = labels.map(l => data[l].genTime || 0);
+                charts.genTime.data = {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Tiempo Generación (s)',
+                        data: genTimes,
+                        backgroundColor: 'rgba(251, 146, 60, 0.6)', // Orange
+                        borderColor: '#fb923c',
+                        borderWidth: 1
+                    }]
+                };
+                charts.genTime.update();
+            }
+
+            charts.speed.data = {
+                labels: labels,
+                datasets: [{
+                    label: 'Tokens / Segundo',
+                    data: speeds,
+                    backgroundColor: labels.map(l => modelColors[l].bg),
+                    borderColor: labels.map(l => modelColors[l].border),
+                    borderWidth: 1
+                }]
+            };
+
+            charts.system.data = {
+                labels: labels,
+                datasets: [
+                    { label: 'RAM Sistema (GB)', data: rams, backgroundColor: '#64748b' },
+                    { label: 'Uso CPU (%)', data: cpus, backgroundColor: '#94a3b8' }
+                ]
+            };
+
+            charts.gpu.config.type = 'bar';
+            charts.gpu.data = {
+                labels: labels,
+                datasets: [
+                    { label: 'VRAM Usada (GB)', data: vrams, backgroundColor: '#a855f7' },
+                    { label: 'Carga Núcleo 3D (%)', data: gpus, backgroundColor: '#d8b4fe' }
+                ]
+            };
+            delete charts.gpu.options.scales.y1; // Remove secondary axis if exists
+
+            charts.temp.data = {
+                labels: labels,
+                datasets: [{
+                    label: 'Temperatura GPU (°C)',
+                    data: temps,
+                    backgroundColor: temps.map(t => t > 55 ? 'rgba(239, 68, 68, 0.8)' : 'rgba(59, 130, 246, 0.6)'),
+                    borderWidth: 0
+                }]
+            };
+            updateChartsGlobal();
+        }
+
+        function updateChartsGlobal() {
+            charts.firstTok.update();
+            charts.speed.update();
+            charts.system.update();
+            charts.gpu.update();
+            charts.temp.update();
+        }
+
+        function updateTable(dataSet, testType) {
+            const thead = document.getElementById('table-header-row');
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+            thead.innerHTML = '';
+
+            // 1. Define Headers (First Token is now standard)
+            let headers = [
+                "Modelo / Prueba", "Tok/Sec", "First Tok (s)", "RAM (GB)", "CPU (%)", "VRAM (GB)", "GPU (%)", "Temp (°C)"
+            ];
+
+            // 2. Add Special Headers ONLY for GPS
+            const isGpsTest = (testType === 'gps');
+            if (isGpsTest) {
+                headers.push("Tiempo Gen (s)");
+            }
+
+            // 3. Render Headers
+            headers.forEach(h => {
+                const th = document.createElement('th');
+                th.className = "p-3";
+                th.innerText = h;
+                thead.appendChild(th);
+            });
+
+            // 4. Render Rows
+            dataSet.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-slate-700 hover:bg-slate-800 transition-colors";
+                
+                const tempClass = row.temp > 55 ? 'text-red-400 font-bold' : 'text-slate-300';
+                const gpuClass = row.gpuLoad > 90 ? 'text-red-400 font-bold' : 'text-slate-300';
+
+                let rowHtml = `
+                    <td class="p-3 font-medium text-white">${row.name}</td>
+                    <td class="p-3 text-blue-300">${row.tokSec}</td>
+                    <td class="p-3 text-yellow-300 font-bold">${row.firstTok}</td>
+                    <td class="p-3">${row.ram}</td>
+                    <td class="p-3">${row.cpu}</td>
+                    <td class="p-3 text-purple-300">${row.vram}</td>
+                    <td class="p-3 ${gpuClass}">${row.gpuLoad}%</td>
+                    <td class="p-3 ${tempClass}">${row.temp}°</td>
+                `;
+
+                // Add special columns data only if GPS
+                if (isGpsTest) {
+                    rowHtml += `
+                        <td class="p-3 text-orange-400 font-bold border-l border-slate-600">${row.genTime || '-'}</td>
+                    `;
+                }
+
+                tr.innerHTML = rowHtml;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.addEventListener('load', () => {
+            initCharts();
+            updateDashboard(); 
+        });
+
+    </script>
+</body>
+</html>
