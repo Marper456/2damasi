@@ -3,7 +3,7 @@
     <title>Documentación</title>
     <link href="https://Marper456.github.io/2damasi/feed.xml" rel="self" />
     <link href="https://Marper456.github.io/2damasi" />
-    <updated>2025-12-04T12:58:23+01:00</updated>
+    <updated>2025-12-07T16:07:28+01:00</updated>
     <author>
         <name>Mario Pérez Garro</name>
     </author>
@@ -64,6 +64,7 @@
 <p data-start="517" data-end="545">✅ Documentación teórica sobre los temas vistos en clase.</p>
 <p data-start="517" data-end="545">✅ Recursos adicionales como manuales, tutoriales y videos de apoyo.</p>
 <p data-start="517" data-end="545"><a href="https://Marper456.github.io/2damasi/documentacion-jetson-nano.html" target="_blank" rel="noopener noreferrer">Documentación Conf. Inicial Jetson nano</a></p>
+<p data-start="517" data-end="545"><a href="https://Marper456.github.io/2damasi/media/files/DocumentacionGraficaComparativaDeLLMs.html">Documentación Comparativa de Modelos</a></p>
 <p data-start="517" data-end="545">Documentación Raspberry Pi:</p>
 <p data-start="517" data-end="545">1.Tras instalar y conectar la raspberry pi al monitor nos disponemos a configurar la raspberry pi</p>
 <figure class="post__image"><img loading="lazy"  src="https://Marper456.github.io/2damasi/media/posts/3/WhatsApp-Image-2025-11-21-at-17.42.27-3.jpeg" alt="" width="902" height="1600" sizes="(min-width: 920px) 703px, (min-width: 700px) calc(82vw - 35px), calc(100vw - 81px)" srcset="https://Marper456.github.io/2damasi/media/posts/3/responsive/WhatsApp-Image-2025-11-21-at-17.42.27-3-xs.jpeg 300w ,https://Marper456.github.io/2damasi/media/posts/3/responsive/WhatsApp-Image-2025-11-21-at-17.42.27-3-sm.jpeg 480w ,https://Marper456.github.io/2damasi/media/posts/3/responsive/WhatsApp-Image-2025-11-21-at-17.42.27-3-md.jpeg 768w ,https://Marper456.github.io/2damasi/media/posts/3/responsive/WhatsApp-Image-2025-11-21-at-17.42.27-3-lg.jpeg 1024w"></figure>
