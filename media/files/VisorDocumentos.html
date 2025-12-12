@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniDoc Pro - Suite de Oficina</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Librerías de Procesamiento -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.2/marked.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    
+    <!-- Almacenamiento Local (Caché) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/java.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/markdown.min.js"></script>
+    
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* --- TEMAS AVANZADOS --- */
+        :root {
+            /* Definición de Variables por defecto (Tema Azul/Original) */
+            --primary: #2563eb;           /* Botones, acentos */
+            --primary-fg: #ffffff;        /* Texto sobre primario */
+            --bg-main: #f1f5f9;           /* Fondo del escritorio */
+            --bg-panel: #ffffff;          /* Fondo de tarjetas, headers, modales */
+            --bg-sidebar: #0f172a;        /* Fondo barra lateral */
+            --bg-hover: #f8fafc;          /* Hover en listas */
+            --text-main: #334155;         /* Texto principal */
+            --text-muted: #64748b;        /* Texto secundario */
+            --text-sidebar: #cbd5e1;      /* Texto en sidebar */
+            --border: #e2e8f0;            /* Bordes */
+            --input-bg: #ffffff;          /* Fondo de inputs */
+        }
+
+        /* --- Base & Scrollbar --- */
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-main) !important; 
+            color: var(--text-main) !important; 
+            height: 100vh; overflow: hidden; 
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* --- Overrides de Tailwind para Temas --- */
+        /* Forzamos a los elementos con clases Tailwind a usar nuestras variables */
+        
+        /* Header y Paneles Blancos */
+        header, .auth-card, .modal-box, .bg-white {
+            background-color: var(--bg-panel) !important;
+            color: var(--text-main) !important;
+            border-color: var(--border) !important;
+        }
+
+        /* Sidebar */
+        aside, .bg-slate-900 {
+            background-color: var(--bg-sidebar) !important;
+            border-color: var(--border) !important; /* A veces el sidebar necesita borde distinto, pero simplificamos */
+        }
+        aside .text-slate-300, aside .text-slate-400, aside .text-slate-500 {
+            color: var(--text-sidebar) !important;
+        }
+        
+        /* Textos */
+        .text-slate-800, .text-gray-900, h1, h2, h3 { color: var(--text-main) !important; }
+        .text-slate-500, .text-gray-500, .text-slate-600 { color: var(--text-muted) !important; }
+
+        /* Botones Primarios */
+        .bg-blue-600 { 
+            background-color: var(--primary) !important; 
+            color: var(--primary-fg) !important;
+        }
+        .text-blue-600 { color: var(--primary) !important; }
+        .border-blue-200 { border-color: var(--primary) !important; opacity: 0.5; }
+
+        /* Inputs */
+        input, select, textarea, .bg-slate-50, .bg-slate-200 {
+            background-color: var(--input-bg) !important;
+            color: var(--text-main) !important;
+            border-color: var(--border) !important;
+        }
+        /* Excepciones para el área de trabajo (gris) */
+        #workspace { background-color: var(--bg-main) !important; }
+        
+        /* Bordes */
+        .border-slate-200, .border-slate-100, .border-slate-800, .border-gray-300 {
+            border-color: var(--border) !important;
+        }
+
+        /* Hover states */
+        .hover\:bg-slate-50:hover, .hover\:bg-gray-50:hover {
+            background-color: var(--bg-hover) !important;
+        }
+
+        /* --- Componentes Específicos --- */
+        .file-item { 
+            display: flex; align-items: center; justify-content: space-between; 
+            padding: 10px 12px; margin-bottom: 4px; cursor: pointer; border-radius: 8px; 
+            font-size: 14px; color: var(--text-sidebar) !important; transition: all 0.2s; 
+        }
+        .file-item:hover { background-color: rgba(255,255,255,0.1) !important; color: white !important; }
+        .file-item.active { background-color: var(--primary) !important; color: var(--primary-fg) !important; font-weight: 500; }
+        
+        /* Auth Overlay */
+        #auth-overlay {
+            position: fixed; inset: 0; z-index: 9999;
+            background-color: var(--bg-main);
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.3s ease;
+        }
+        #auth-overlay.hidden { display: none !important; opacity: 0; pointer-events: none; }
+
+        .auth-card {
+            width: 100%; max-width: 400px;
+            border-radius: 1rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+            overflow: hidden; border: 1px solid var(--border);
+        }
+        .auth-tabs { display: flex; border-bottom: 1px solid var(--border); }
+        .auth-tab {
+            flex: 1; padding: 1rem; text-align: center; cursor: pointer;
+            font-weight: 600; color: var(--text-muted); background: var(--bg-main);
+            transition: all 0.2s;
+        }
+        .auth-tab.active { background: var(--bg-panel); color: var(--primary); border-bottom: 2px solid var(--primary); }
+        .auth-content { padding: 2rem; }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* Excel Grid */
+        .excel-wrapper { width: 100%; height: 100%; overflow: auto; background: var(--bg-panel); }
+        .excel-sheet { border-collapse: separate; border-spacing: 0; font-family: 'Inter', sans-serif; font-size: 13px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); table-layout: fixed; }
+        .excel-sheet th, .excel-sheet td { border-top: 1px solid var(--border); border-left: 1px solid var(--border); padding: 0; height: 26px; min-width: 80px; color: var(--text-main); }
+        .cell-input { width: 100%; height: 100%; border: none; outline: none; padding: 0 6px; font-family: inherit; font-size: inherit; background: transparent; color: inherit; }
+        .cell-input:focus { background: var(--bg-hover); box-shadow: inset 0 0 0 2px var(--primary); }
+        
+        .excel-col-header { 
+            background: var(--bg-main); color: var(--text-muted); font-weight: 600; text-align: center; 
+            position: sticky; top: 0; z-index: 10; border-bottom: 2px solid var(--border); 
+            user-select: none; position: relative;
+        }
+        .col-resizer {
+            position: absolute; top: 0; right: 0; width: 5px; height: 100%;
+            cursor: col-resize; background: transparent; z-index: 20;
+        }
+        .col-resizer:hover, .col-resizer.resizing { background: var(--primary); }
+
+        .excel-row-header { background: var(--bg-main); color: var(--text-muted); font-weight: 600; text-align: center; width: 40px; min-width: 40px; position: sticky; left: 0; z-index: 10; border-right: 2px solid var(--border); }
+        .excel-corner { background: var(--bg-main); position: sticky; top: 0; left: 0; z-index: 20; border-right: 2px solid var(--border); border-bottom: 2px solid var(--border); }
+
+        /* Doc Viewer */
+        .page-editor-container { 
+            width: 100%; height: 100%; overflow-y: auto; 
+            background-color: #525659; /* Este fondo gris oscuro suele mantenerse igual en visores de documentos */
+            display: flex; flex-direction: column; align-items: center; 
+            padding: 40px 0; 
+        }
+        
+        .page-document { background: transparent; width: 100%; height: auto; display: flex; flex-direction: column; align-items: center; outline: none; padding-bottom: 80px; }
+
+        .doc-page {
+            background: white !important; /* El papel siempre es blanco */
+            color: black !important; /* Tinta negra */
+            width: 210mm; min-height: 297mm; height: auto; padding: 2.54cm;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            font-family: 'Times New Roman', serif; font-size: 11pt; line-height: 1.5;
+            overflow-wrap: break-word; 
+        }
+        .doc-page:focus { outline: none; }
+        .doc-page h1 { font-size: 2em; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.2em; color: var(--primary) !important; }
+        .doc-page a { color: var(--primary) !important; text-decoration: underline; cursor: pointer; }
+
+        /* PDF & Media */
+        #pdf-viewer-content { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; padding-bottom: 80px; }
+        .pdf-canvas { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); background: white; width: 210mm; height: auto; }
+
+        .media-viewer-wrapper {
+            width: 100%; height: 100%; display: flex;
+            align-items: center; justify-content: center;
+            overflow: hidden; background-color: #0f172a; 
+            position: relative;
+        }
+        .image-container-scroll {
+            width: 100%; height: 100%; overflow: auto;
+            display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+        .image-content {
+            max-width: 100%; max-height: 100%;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+            transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94); transform-origin: center center;
+        }
+        .video-content {
+            max-width: 90%; max-height: 90%; border-radius: 8px;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+        }
+
+        /* Editor */
+        .code-split-container { display: flex; width: 100%; height: 100%; overflow: hidden; }
+        .code-editor-wrapper { position: relative; width: 50%; height: 100%; background-color: #282c34; display: flex; border-right: 1px solid #1e2229; transition: width 0.3s ease; }
+        .code-preview-wrapper { width: 50%; height: 100%; background-color: var(--bg-panel); display: flex; flex-direction: column; position: relative; transition: width 0.3s ease; }
+        .code-full-width .code-editor-wrapper { width: 100%; border-right: none; }
+        .code-full-width .code-preview-wrapper { width: 0; display: none; }
+
+        :root { --editor-font: 'JetBrains Mono', monospace; --editor-size: 14px; --editor-lh: 1.5; }
+        .editor-layer { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 20px; 
+            font-family: var(--editor-font); font-size: var(--editor-size); line-height: var(--editor-lh); 
+            tab-size: 4; white-space: pre; overflow: auto; box-sizing: border-box; margin: 0; border: 0; 
+            background: transparent; letter-spacing: 0px; font-variant-ligatures: none; -webkit-font-smoothing: antialiased;
+        }
+        
+        /* ToolBar */
+        .tool-btn { 
+            padding: 6px 8px; border-radius: 4px; font-size: 13px; display: flex; align-items: center; justify-content: center; 
+            color: var(--text-muted) !important; background: var(--bg-panel) !important; border: 1px solid var(--border) !important; cursor: pointer; transition: all 0.1s; 
+            min-width: 32px; height: 32px;
+        }
+        .tool-btn:hover { background: var(--bg-hover) !important; border-color: var(--border) !important; color: var(--primary) !important; }
+        .tool-btn.active-mode { background: var(--bg-hover) !important; border-color: var(--primary) !important; color: var(--primary) !important; }
+        
+        .tool-select { height: 32px; padding: 0 4px; border-radius: 4px; border: 1px solid var(--border); font-size: 12px; background: var(--bg-panel); color: var(--text-main); outline: none; cursor: pointer; max-width: 120px; }
+        .tool-input { height: 32px; width: 60px; padding: 0 4px; border-radius: 4px; border: 1px solid var(--border); font-size: 12px; background: var(--bg-panel); color: var(--text-main); outline: none; text-align: center; }
+        .toolbar-separator { width: 1px; height: 20px; background-color: var(--border); margin: 0 6px; }
+
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+        .modal-box { background: var(--bg-panel); padding: 24px; border-radius: 12px; max-width: 400px; width: 90%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); border: 1px solid var(--border); }
+        
+        .toast { transition: all 0.3s ease; z-index: 10000; max-width: 300px; background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border); }
+
+        /* Media Query */
+        @media (max-width: 768px) {
+            .page-editor-container { padding: 10px 0; }
+            .doc-page { width: 95vw; min-height: 50vh; padding: 1.5cm; }
+            .pdf-canvas { width: 95vw !important; height: auto !important; }
+            .code-split-container { flex-direction: column; }
+            .code-editor-wrapper, .code-preview-wrapper { width: 100% !important; height: 50%; border-right: none; border-bottom: 1px solid #1e2229; }
+            .video-content { max-width: 100%; border-radius: 0; }
+            .image-content { max-width: 100%; }
+            header { padding-left: 10px; padding-right: 10px; }
+            #dynamic-toolbar { 
+                justify-content: flex-start; 
+                padding-left: 0; padding-right: 0; 
+                mask-image: linear-gradient(to right, black 90%, transparent 100%);
+            }
+            h1.text-lg { font-size: 1rem; }
+            .tracking-widest { display: none; }
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
+
+    <div id="auth-overlay">
+        <div class="auth-card">
+            <div class="p-6 text-center border-b border-slate-100 bg-slate-50">
+                <div class="flex items-center justify-center gap-2 mb-1">
+                    <div class="bg-blue-600 p-1.5 rounded-lg"><i data-lucide="layout" class="text-white w-5 h-5"></i></div>
+                    <h1 class="text-xl font-bold text-slate-800">Omni<span class="text-blue-600">Doc</span></h1>
+                </div>
+                <p class="text-xs text-slate-500 uppercase tracking-widest">Acceso Seguro</p>
+            </div>
+            
+            <div class="auth-tabs">
+                <div class="auth-tab active" onclick="auth.switchTab('login')">Iniciar Sesión</div>
+                <div class="auth-tab" onclick="auth.switchTab('register')">Registrarse</div>
+            </div>
+            
+            <div class="auth-content">
+                <form id="auth-form" onsubmit="auth.handleSubmit(event)">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Correo Electrónico</label>
+                        <input type="email" id="auth-email" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
+                        <input type="password" id="auth-password" required minlength="6" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <button type="submit" id="auth-submit-btn" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-500/30 flex justify-center items-center gap-2">
+                        <span id="auth-btn-text">Entrar</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                    <p id="auth-error" class="text-red-500 text-xs mt-3 text-center hidden"></p>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+    
+    <div id="confirm-modal" class="modal-overlay hidden">
+        <div class="modal-box text-center">
+            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-orange-100 mb-4">
+                <i data-lucide="alert-triangle" class="h-6 w-6 text-orange-600"></i>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900 mb-2" id="confirm-title">Advertencia</h3>
+            <p id="confirm-message" class="text-sm text-gray-500 mb-6"></p>
+            <div class="flex gap-3 justify-center">
+                <button onclick="app.closeModal('confirm', false)" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Cancelar</button>
+                <button onclick="app.closeModal('confirm', true)" class="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700">Continuar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="save-modal" class="modal-overlay hidden">
+        <div class="modal-box text-left">
+            <h3 class="text-lg font-bold text-gray-900 mb-4" id="save-title">Guardar Archivo</h3>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1" id="save-name-label">Nombre del Archivo</label>
+                <input type="text" id="save-filename" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-1" id="save-format-label">Formato</label>
+                <select id="save-format" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="original">Formato Original</option>
+                    <option value="pdf">Documento PDF (.pdf)</option>
+                    <option value="html">Página Web (.html)</option>
+                    <option value="txt">Texto Plano (.txt)</option>
+                </select>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button onclick="app.closeModal('save', false)" class="px-4 py-2 bg-gray-100 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-200" id="save-cancel">Cancelar</button>
+                <button onclick="app.confirmSave()" class="px-4 py-2 bg-blue-600 rounded-md text-sm font-medium text-white hover:bg-blue-700 flex items-center gap-2" id="save-confirm"><i data-lucide="save" class="w-4 h-4"></i> <span id="save-confirm-text">Guardar</span></button>
+            </div>
+        </div>
+    </div>
+
+    <div id="customize-modal" class="modal-overlay hidden">
+        <div class="modal-box text-left">
+            <h3 class="text-lg font-bold text-gray-900 mb-4" id="customize-title">Plantillas de Interfaz (UI)</h3>
+            <p class="text-sm text-gray-500 mb-6">Aplica un tema predefinido para cambiar la apariencia de OmniDoc.</p>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <button onclick="app.loadUiTheme('default')" class="p-4 border rounded-lg text-sm font-medium transition duration-150 shadow hover:shadow-md bg-blue-50">
+                    <div class="h-4 w-4 rounded-full bg-blue-600 inline-block mr-2"></div> Original (Azul)
+                </button>
+                <button onclick="app.loadUiTheme('dark')" class="p-4 border rounded-lg text-sm font-medium transition duration-150 shadow hover:shadow-md bg-slate-800 text-white border-slate-700">
+                    <div class="h-4 w-4 rounded-full bg-indigo-400 inline-block mr-2"></div> Oscuro (Indigo)
+                </button>
+                <button onclick="app.loadUiTheme('contrast')" class="p-4 border rounded-lg text-sm font-medium transition duration-150 shadow hover:shadow-md bg-black text-white border-gray-900">
+                    <div class="h-4 w-4 rounded-full bg-yellow-400 inline-block mr-2"></div> Alto Contraste
+                </button>
+                <button onclick="app.loadUiTheme('green')" class="p-4 border rounded-lg text-sm font-medium transition duration-150 shadow hover:shadow-md bg-emerald-50">
+                    <div class="h-4 w-4 rounded-full bg-emerald-600 inline-block mr-2"></div> Verde Empresarial
+                </button>
+            </div>
+            
+            <div class="flex justify-end mt-4">
+                <button onclick="app.closeModal('customize', false)" class="px-4 py-2 bg-gray-100 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-200" id="customize-cancel">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backdrop para móvil -->
+    <div id="sidebar-backdrop" onclick="app.toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden transition-opacity"></div>
+
+    <header class="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 md:px-6 z-30 sticky top-0">
+        <div class="flex items-center gap-3">
+            <!-- Botón Hamburguesa (Solo Móvil) -->
+            <button onclick="app.toggleSidebar()" class="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
+
+            <div class="bg-blue-600 p-2 rounded-lg shadow-lg shadow-blue-500/30">
+                <i data-lucide="layout" class="text-white w-5 h-5"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold text-slate-800 tracking-tight leading-none">Omni<span class="text-blue-600">Doc</span></h1>
+                <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest hidden sm:inline-block">Professional</span>
+            </div>
+        </div>
+
+        <div id="dynamic-toolbar" class="flex items-center gap-1 overflow-x-auto px-4 scrollbar-hide flex-1 justify-center mx-4 h-full"></div>
+
+        <div class="flex items-center gap-2 md:gap-3">
+            <button onclick="app.openCustomizeModal()" class="tool-btn bg-white hidden sm:flex" title="Personalizar Interfaz" onmouseover="speakText('Personalizar Interfaz')" onmouseout="stopSpeaking()"><i data-lucide="palette" class="w-4 h-4 text-slate-500"></i></button>
+            
+            <button onclick="app.toggleLanguage()" class="tool-btn bg-white hidden sm:flex" title="Cambiar Idioma" onmouseover="speakText('Cambiar Idioma')" onmouseout="stopSpeaking()"><i data-lucide="languages" class="w-4 h-4 text-slate-500"></i></button>
+
+            <button onclick="auth.logout()" class="tool-btn bg-white text-red-500 border-red-200 hover:bg-red-50" title="Cerrar Sesión" onmouseover="speakText('Cerrar Sesión')" onmouseout="stopSpeaking()">
+                <i data-lucide="log-out" class="w-4 h-4"></i>
+            </button>
+
+            <input type="file" id="fileInput" class="hidden" multiple />
+            <button onclick="document.getElementById('fileInput').click()" class="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-3 py-2 md:px-4 md:py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all" onmouseover="speakText('Abrir Documentos')" onmouseout="stopSpeaking()">
+                <i data-lucide="folder-open" class="w-4 h-4 text-blue-500"></i> <span id="btn-open" class="hidden sm:inline">Abrir</span>
+            </button>
+            
+            <div class="relative group">
+                <button onclick="app.openSaveModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 md:px-4 md:py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all shadow-lg shadow-blue-500/20" onmouseover="speakText('Guardar Documento')" onmouseout="stopSpeaking()">
+                    <i data-lucide="download" class="w-4 h-4"></i> <span id="btn-save" class="hidden sm:inline">Guardar</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden relative">
+        
+        <!-- Sidebar Responsivo: Fixed en móvil, Relative en desktop -->
+        <aside id="main-sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 flex flex-col shrink-0 text-slate-300 border-r border-slate-800 transform -translate-x-full md:translate-x-0 md:relative transition-transform duration-300 ease-in-out">
+            <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+                <div class="text-xs font-bold text-slate-500 uppercase tracking-wider" id="sidebar-files-title">Archivos</div>
+                <span id="file-count" class="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">0</span>
+                <!-- Botón cerrar sidebar en móvil -->
+                <button onclick="app.toggleSidebar()" class="md:hidden text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            
+            <div id="file-list" class="flex-1 overflow-y-auto p-3 space-y-1">
+                <div class="mt-20 flex flex-col items-center opacity-40">
+                    <i data-lucide="inbox" class="w-10 h-10 mb-2"></i>
+                    <span class="text-sm" id="sidebar-empty">Sin archivos</span>
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-800/50 border-t border-slate-800">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-slate-500 uppercase" id="sidebar-status-title">Estado</span>
+                    <span id="info-type" class="text-[10px] font-mono bg-slate-700 text-slate-300 px-1.5 rounded">-</span>
+                </div>
+                <div id="info-stats" class="text-sm text-white font-medium truncate mb-3">-</div>
+                <div id="demo-actions" class="grid grid-cols-2 gap-2">
+                    <button onclick="app.loadDemo('word')" class="text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 rounded transition">Word</button>
+                    <button onclick="app.loadDemo('excel')" class="text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 rounded transition">Excel</button>
+                    <button onclick="app.loadDemo('pdf')" class="text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 rounded transition">PDF</button>
+                    <button onclick="app.loadDemo('html')" class="text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 rounded transition">HTML</button>
+                </div>
+            </div>
+        </aside>
+
+        <div id="workspace" class="flex-1 bg-slate-200 relative overflow-hidden">
+            <div id="loading-overlay" class="absolute inset-0 bg-slate-900/40 z-50 flex items-center justify-center hidden backdrop-blur-sm transition-all"><div class="animate-spin rounded-full h-10 w-10 border-4 border-white/20 border-t-blue-500"></div></div>
+            <div id="empty-state" class="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                <div class="bg-white p-10 rounded-2xl shadow-xl border border-slate-100 flex flex-col items-center max-w-sm text-center">
+                    <div class="bg-blue-50 p-4 rounded-full mb-5 ring-4 ring-blue-50/50"><i data-lucide="file-plus" class="w-8 h-8 text-blue-500"></i></div>
+                    <h3 class="text-xl font-bold text-slate-800 mb-2">Área de Trabajo</h3>
+                    <p class="text-sm text-slate-500 mb-8 leading-relaxed">Arrastra tus archivos aquí o usa el botón abrir. Soportamos Word, Excel, PDF, HTML, Imágenes, Videos y Código.</p>
+                    <button onclick="document.getElementById('fileInput').click()" class="bg-slate-900 text-white px-6 py-2.5 rounded-lg font-medium text-sm hover:bg-slate-800 transition-colors w-full">Seleccionar Archivos</button>
+                </div>
+            </div>
+
+            <div id="page-editor-container" class="page-editor-container hidden">
+                <div id="pdf-viewer-content" class="hidden w-full flex-col items-center"></div>
+                <div id="page-document" class="page-document hidden" contenteditable="true" spellcheck="false" oninput="app.syncContent()"></div>
+                <div id="pdf-controls" class="hidden fixed bottom-8 bg-slate-900 text-white px-2 py-2 rounded-full shadow-2xl flex gap-2 items-center z-40 transform hover:scale-105 transition-transform">
+                    <button onclick="app.togglePdfView('preview')" id="btn-pdf-view" class="px-4 py-2 rounded-full text-xs font-bold transition hover:bg-slate-700 bg-blue-600">Vista Original</button>
+                    <button onclick="app.togglePdfView('edit')" id="btn-pdf-edit" class="px-4 py-2 rounded-full text-xs font-bold transition hover:bg-slate-700">Transformar a Texto</button>
+                </div>
+            </div>
+
+            <div id="excel-editor" class="excel-wrapper hidden"></div>
+
+            <div id="image-viewer-container" class="hidden media-viewer-wrapper">
+                <div class="image-container-scroll">
+                    <img id="image-display" class="image-content" src="" alt="Vista previa de imagen">
+                </div>
+            </div>
+
+            <div id="video-viewer-container" class="hidden media-viewer-wrapper">
+                <div class="image-container-scroll">
+                    <video id="video-display" class="video-content" controls></video>
+                </div>
+            </div>
+
+            <div id="code-editor-container" class="hidden w-full h-full">
+                <div id="code-split" class="code-split-container">
+                    <div class="code-editor-wrapper">
+                        <div id="simple-lines" class="line-numbers">1</div>
+                        <div class="editor-container-inner">
+                            <pre class="editor-layer syntax-layer"><code id="simple-syntax" class="language-plaintext"></code></pre>
+                            <textarea id="simple-input" class="editor-layer input-layer" spellcheck="false" oninput="editor.sync()" onscroll="editor.scroll()"></textarea>
+                        </div>
+                    </div>
+                    <div class="code-preview-wrapper">
+                        <div class="bg-slate-100 border-b border-slate-200 px-4 py-2 flex justify-between items-center shrink-0">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2" id="code-preview-title"><i data-lucide="monitor-play" class="w-3 h-3"></i> Visualización</span>
+                            <button onclick="editor.sync()" class="p-1 hover:bg-white rounded text-slate-500 hover:text-blue-600 transition" title="Refrescar" onmouseover="speakText('Refrescar Vista Previa')" onmouseout="stopSpeaking()"><i data-lucide="refresh-cw" class="w-3 h-3"></i></button>
+                        </div>
+                        <iframe id="code-preview-frame" class="w-full h-full bg-white border-none"></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        lucide.createIcons();
+        
+        // --- AUTH CONFIG ---
+        const supabaseUrl = 'https://lkgumpgwtjyljytolzed.supabase.co'
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxrZ3VtcGd3dGp5bGp5dG9semVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0NjMyMTEsImV4cCI6MjA4MTAzOTIxMX0.FwlK1VHsp3huOeCm813F9aeG4IBuGfKiWBC7dJoT90c'
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        const auth = {
+            mode: 'login',
+            
+            hideOverlay: () => {
+                const el = document.getElementById('auth-overlay');
+                el.classList.add('hidden');
+                el.style.display = 'none'; 
+            },
+
+            showOverlay: () => {
+                const el = document.getElementById('auth-overlay');
+                el.classList.remove('hidden');
+                el.style.display = 'flex';
+            },
+
+            init: async () => {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    auth.hideOverlay();
+                }
+                supabase.auth.onAuthStateChange((event, session) => {
+                    if (event === 'SIGNED_IN') {
+                        auth.hideOverlay();
+                    } else if (event === 'SIGNED_OUT') {
+                        auth.showOverlay();
+                    }
+                });
+            },
+
+            switchTab: (mode) => {
+                auth.mode = mode;
+                const tabs = document.querySelectorAll('.auth-tab');
+                tabs.forEach(t => t.classList.remove('active'));
+                tabs[mode === 'login' ? 0 : 1].classList.add('active');
+                
+                const btnText = mode === 'login' ? 'Entrar' : 'Registrarse';
+                document.getElementById('auth-btn-text').textContent = btnText;
+                document.getElementById('auth-error').classList.add('hidden');
+            },
+
+            handleSubmit: async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('auth-email').value;
+                const password = document.getElementById('auth-password').value;
+                const errorEl = document.getElementById('auth-error');
+                const btn = document.getElementById('auth-submit-btn');
+                
+                btn.disabled = true;
+                btn.classList.add('opacity-70');
+                errorEl.classList.add('hidden');
+
+                try {
+                    let error = null;
+                    if (auth.mode === 'login') {
+                        const res = await supabase.auth.signInWithPassword({ email, password });
+                        error = res.error;
+                    } else {
+                        const res = await supabase.auth.signUp({ email, password });
+                        error = res.error;
+                        if (!error && res.data.user) {
+                            toast('Registro exitoso. ¡Bienvenido!', 'success');
+                            if (!res.data.session) auth.hideOverlay();
+                        }
+                    }
+
+                    if (error) {
+                        errorEl.textContent = error.message === 'Invalid login credentials' ? 'Credenciales incorrectas' : error.message;
+                        errorEl.classList.remove('hidden');
+                    } else if (auth.mode === 'login') {
+                          toast('Sesión iniciada', 'success');
+                          auth.hideOverlay(); 
+                    }
+                } catch (err) {
+                    errorEl.textContent = "Error de conexión";
+                    errorEl.classList.remove('hidden');
+                } finally {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-70');
+                }
+            },
+            
+            logout: async () => {
+                await supabase.auth.signOut();
+                window.location.reload();
+            }
+        };
+
+        auth.init();
+
+
+        // --- LANGUAGE CONFIG ---
+        const lang = {
+            current: 'es',
+            strings: {
+                es: {
+                    OPEN: "Abrir", SAVE: "Guardar", FILES: "Archivos", STATUS: "Estado", EMPTY: "Sin archivos",
+                    ORIGINAL_VIEW: "Vista Original", EDIT_MODE: "Transformar a Texto", CUSTOMIZE_UI: "Plantillas de UI",
+                    PRIMARY_COLOR: "Color Principal (Botones)", DESKTOP_BG: "Fondo del Escritorio", SIDEBAR_BG: "Fondo de Barra Lateral",
+                    APPLY: "Aplicar", CANCEL: "Cancelar", LANGUAGE: "Idioma",
+                    CLOSE: "Cerrar", WARN_TITLE: "Advertencia",
+                    WARN_OLD_FORMAT: "El archivo tiene un formato antiguo o binario que puede contener basura visual. ¿Desea cargar el contenido crudo?",
+                    WARN_BINARY_LOADED: "Archivo cargado (modo crudo)", SAVE_TITLE: "Guardar Archivo", SAVE_NAME_LABEL: "Nombre del Archivo", SAVE_FORMAT_LABEL: "Formato", SAVE_CONFIRM: "Guardar",
+                    TOOL_UNDO: "Deshacer", TOOL_REDO: "Rehacer", TOOL_BOLD: "Negrita", TOOL_ITALIC: "Cursiva", TOOL_UNDERLINE: "Subrayar", TOOL_STRIKETHROUGH: "Tachado", 
+                    TOOL_COLOR: "Color Texto", TOOL_HIGHLIGHT: "Resaltar", TOOL_ALIGN_LEFT: "Izquierda", TOOL_ALIGN_CENTER: "Centro", TOOL_ALIGN_RIGHT: "Derecha", TOOL_ALIGN_JUSTIFY: "Justificar",
+                    TOOL_BULLET: "Viñetas", TOOL_NUMBER: "Numeración", TOOL_COPY: "Copiar Código", TOOL_REFRESH: "Refrescar Vista Previa",
+                    TOOL_SIZE: "Tamaño de Fuente",
+                    UI_DEFAULT: "Original (Azul)", UI_DARK: "Oscuro (Indigo)", UI_CONTRAST: "Alto Contraste", UI_GREEN: "Verde Empresarial",
+                    TOOL_ZOOM_IN: "Acercar", TOOL_ZOOM_OUT: "Alejar", TOOL_ROTATE_LEFT: "Rotar Izquierda", TOOL_ROTATE_RIGHT: "Rotar Derecha",
+                    TOOL_PLAY: "Reproducir/Pausar", TOOL_MUTE: "Silenciar/Activar sonido", TOOL_BACK_10: "Retroceder 10s", TOOL_FWD_10: "Avanzar 10s"
+                },
+                en: {
+                    OPEN: "Open", SAVE: "Save", FILES: "Files", STATUS: "Status", EMPTY: "No files",
+                    ORIGINAL_VIEW: "Original View", EDIT_MODE: "Convert to Text", CUSTOMIZE_UI: "UI Templates",
+                    PRIMARY_COLOR: "Primary Color (Buttons)", DESKTOP_BG: "Desktop Background", SIDEBAR_BG: "Sidebar Background",
+                    APPLY: "Apply", CANCEL: "Cancel", LANGUAGE: "Language",
+                    CLOSE: "Close", WARN_TITLE: "Warning",
+                    WARN_OLD_FORMAT: "This file is an old or binary format and may contain visual junk. Do you want to load the raw content?",
+                    WARN_BINARY_LOADED: "File loaded (raw mode)", SAVE_TITLE: "Save File", SAVE_NAME_LABEL: "File Name", SAVE_FORMAT_LABEL: "Format", SAVE_CONFIRM: "Save",
+                    TOOL_UNDO: "Undo", TOOL_REDO: "Redo", TOOL_BOLD: "Bold", TOOL_ITALIC: "Italic", TOOL_UNDERLINE: "Underline", TOOL_STRIKETHROUGH: "Strikethrough", 
+                    TOOL_COLOR: "Text Color", TOOL_HIGHLIGHT: "Highlight", TOOL_ALIGN_LEFT: "Left", TOOL_ALIGN_CENTER: "Center", TOOL_ALIGN_RIGHT: "Right", TOOL_ALIGN_JUSTIFY: "Justify",
+                    TOOL_BULLET: "Bullets", TOOL_NUMBER: "Numbering", TOOL_COPY: "Copy Code", TOOL_REFRESH: "Refresh Preview",
+                    TOOL_SIZE: "Font Size",
+                    UI_DEFAULT: "Original (Blue)", UI_DARK: "Dark (Indigo)", UI_CONTRAST: "High Contrast", UI_GREEN: "Corporate Green",
+                    TOOL_ZOOM_IN: "Zoom In", TOOL_ZOOM_OUT: "Zoom Out", TOOL_ROTATE_LEFT: "Rotate Left", TOOL_ROTATE_RIGHT: "Rotate Right",
+                    TOOL_PLAY: "Play/Pause", TOOL_MUTE: "Mute/Unmute", TOOL_BACK_10: "Back 10s", TOOL_FWD_10: "Forward 10s"
+                }
+            }
+        };
+        let ttsEnabled = false;
+
+        const state = { docs: [], activeId: null, nextId: 1, pendingCallback: null, selectedCell: null };
+        const els = {
+            fileList: document.getElementById('file-list'), fileCount: document.getElementById('file-count'), emptyState: document.getElementById('empty-state'), toolbar: document.getElementById('dynamic-toolbar'), loader: document.getElementById('loading-overlay'), pageContainer: document.getElementById('page-editor-container'), pageDoc: document.getElementById('page-document'), pdfView: document.getElementById('pdf-viewer-content'), pdfCtrls: document.getElementById('pdf-controls'), btnPdfView: document.getElementById('btn-pdf-view'), btnPdfEdit: document.getElementById('btn-pdf-edit'), excelView: document.getElementById('excel-editor'), codeView: document.getElementById('code-editor-container'), codeSplit: document.getElementById('code-split'), input: document.getElementById('simple-input'), syntax: document.getElementById('simple-syntax'), lines: document.getElementById('simple-lines'), previewFrame: document.getElementById('code-preview-frame'), confirmModal: document.getElementById('confirm-modal'), confirmMsg: document.getElementById('confirm-message'), saveModal: document.getElementById('save-modal'), saveName: document.getElementById('save-filename'), saveFormat: document.getElementById('save-format'), customizeModal: document.getElementById('customize-modal'), 
+            imageViewer: document.getElementById('image-viewer-container'), imageDisplay: document.getElementById('image-display'),
+            videoViewer: document.getElementById('video-viewer-container'), videoDisplay: document.getElementById('video-display')
+        };
+
+        // --- Cache (IndexedDB wrapper) ---
+        const cache = {
+            init: async () => {
+                localforage.config({ name: 'OmniDocPro', storeName: 'files' });
+                try {
+                    const keys = await localforage.keys();
+                    if (keys.length) {
+                        app.loading(true);
+                        const docs = [];
+                        for (const key of keys) {
+                            const doc = await localforage.getItem(key);
+                            if (doc) docs.push(doc);
+                        }
+                        state.docs = docs.sort((a,b) => a.id - b.id);
+                        if (state.docs.length > 0) {
+                            state.nextId = Math.max(...state.docs.map(d => d.id)) + 1;
+                            app.renderList();
+                        }
+                        app.loading(false);
+                    }
+                } catch(e) { console.error("Cache error", e); }
+            },
+            save: async (doc) => {
+                try { await localforage.setItem(`doc_${doc.id}`, doc); } catch(e) { console.error("Save error", e); }
+            },
+            remove: async (id) => {
+                try { await localforage.removeItem(`doc_${id}`); } catch(e) { console.error("Remove error", e); }
+            }
+        };
+        // Debounce helper for auto-saving on edit
+        let saveTimeout;
+        const debouncedSave = (doc) => {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => cache.save(doc), 1000);
+        };
+
+        // --- TTS Helper Functions ---
+        function speakText(text) {
+            if (!ttsEnabled || !window.speechSynthesis) return;
+            window.speechSynthesis.cancel(); 
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang.current === 'es' ? 'es-ES' : 'en-US';
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function stopSpeaking() {
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+        }
+        window.speakText = speakText;
+        window.stopSpeaking = stopSpeaking;
+        // --- End TTS Helper Functions ---
+
+        const toast = (msg, type = 'neutral') => {
+            const el = document.createElement('div'); el.className = `toast ${type} fixed bottom-20 right-20 flex items-center gap-2 p-3 rounded-lg shadow-xl`;
+            const icon = type === 'error' ? 'alert-circle' : (type === 'success' ? 'check-circle' : (type === 'warning' ? 'alert-triangle' : 'info'));
+            el.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5"></i> <span>${msg}</span>`;
+            document.getElementById('toast-container').appendChild(el); lucide.createIcons();
+            requestAnimationFrame(() => el.classList.add('show'));
+            setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 4000);
+        };
+
+        const app = {
+            loading: (show) => els.loader.classList.toggle('hidden', !show),
+
+            selectCell: (r, c) => {
+                state.selectedCell = { r, c };
+            },
+
+            // --- Mobile Sidebar Toggle ---
+            toggleSidebar: () => {
+                const sidebar = document.getElementById('main-sidebar');
+                const backdrop = document.getElementById('sidebar-backdrop');
+                const isClosed = sidebar.classList.contains('-translate-x-full');
+                
+                if (isClosed) {
+                    sidebar.classList.remove('-translate-x-full');
+                    backdrop.classList.remove('hidden');
+                } else {
+                    sidebar.classList.add('-translate-x-full');
+                    backdrop.classList.add('hidden');
+                }
+            },
+
+            // --- Customization & Language Functions ---
+            openCustomizeModal: () => {
+                els.customizeModal.classList.remove('hidden');
+                app.updateUiTexts();
+            },
+
+            loadUiTheme: (themeName) => {
+                // Configuración completa de temas que afecta a todos los colores
+                const themes = {
+                    default: {
+                        '--primary': '#2563eb',
+                        '--primary-fg': '#ffffff',
+                        '--bg-main': '#f1f5f9',
+                        '--bg-panel': '#ffffff',
+                        '--bg-sidebar': '#0f172a',
+                        '--bg-hover': '#f8fafc',
+                        '--text-main': '#334155',
+                        '--text-muted': '#64748b',
+                        '--text-sidebar': '#cbd5e1',
+                        '--border': '#e2e8f0',
+                        '--input-bg': '#ffffff'
+                    },
+                    dark: {
+                        '--primary': '#6366f1',
+                        '--primary-fg': '#ffffff',
+                        '--bg-main': '#020617',     /* Fondo muy oscuro */
+                        '--bg-panel': '#1e293b',    /* Paneles Slate 800 */
+                        '--bg-sidebar': '#0f172a',  /* Sidebar Slate 900 */
+                        '--bg-hover': '#334155',
+                        '--text-main': '#f1f5f9',   /* Texto blanco */
+                        '--text-muted': '#94a3b8',
+                        '--text-sidebar': '#cbd5e1',
+                        '--border': '#334155',      /* Bordes oscuros */
+                        '--input-bg': '#1e293b'
+                    },
+                    contrast: {
+                        '--primary': '#fbbf24',      /* Amarillo ambar */
+                        '--primary-fg': '#000000',
+                        '--bg-main': '#000000',
+                        '--bg-panel': '#000000',
+                        '--bg-sidebar': '#1a1a1a',
+                        '--bg-hover': '#333333',
+                        '--text-main': '#ffffff',
+                        '--text-muted': '#fbbf24',   /* Texto secundario también resaltado */
+                        '--text-sidebar': '#ffffff',
+                        '--border': '#ffffff',
+                        '--input-bg': '#000000'
+                    },
+                    green: {
+                        '--primary': '#059669',
+                        '--primary-fg': '#ffffff',
+                        '--bg-main': '#ecfdf5',
+                        '--bg-panel': '#ffffff',
+                        '--bg-sidebar': '#064e3b',
+                        '--bg-hover': '#d1fae5',
+                        '--text-main': '#064e3b',
+                        '--text-muted': '#047857',
+                        '--text-sidebar': '#a7f3d0',
+                        '--border': '#a7f3d0',
+                        '--input-bg': '#f0fdf4'
+                    }
+                };
+
+                const selectedTheme = themes[themeName] || themes.default;
+
+                // Aplicar todas las variables
+                for (const [key, value] of Object.entries(selectedTheme)) {
+                    document.documentElement.style.setProperty(key, value);
+                }
+                
+                app.closeModal('customize', false);
+                toast(lang.strings[lang.current].APPLY + ' ' + themeName.toUpperCase(), 'success');
+            },
+
+            toggleLanguage: () => {
+                lang.current = lang.current === 'es' ? 'en' : 'es';
+                app.updateUiTexts();
+                toast('Idioma cambiado a ' + (lang.current === 'es' ? 'Español' : 'English'), 'neutral');
+            },
+            
+            updateUiTexts: () => {
+                const s = lang.strings[lang.current];
+                // Helper to safely set text content
+                const setTxt = (id, txt) => { 
+                    const el = document.getElementById(id); 
+                    if(el) el.textContent = txt; 
+                };
+
+                // Header Buttons
+                setTxt('btn-open', s.OPEN);
+                setTxt('btn-save', s.SAVE);
+                
+                // Sidebar
+                setTxt('sidebar-files-title', s.FILES);
+                setTxt('sidebar-status-title', s.STATUS);
+                setTxt('sidebar-empty', s.EMPTY);
+
+                // Modals
+                setTxt('customize-title', s.CUSTOMIZE_UI);
+                setTxt('confirm-title', s.WARN_TITLE);
+                setTxt('save-title', s.SAVE_TITLE);
+                setTxt('save-name-label', s.SAVE_NAME_LABEL);
+                setTxt('save-format-label', s.SAVE_FORMAT_LABEL);
+                
+                // Safe update for save confirm button text
+                const saveBtnTxt = document.getElementById('save-confirm-text');
+                if(saveBtnTxt) saveBtnTxt.textContent = s.SAVE_CONFIRM;
+                
+                setTxt('save-cancel', s.CANCEL);
+                setTxt('customize-cancel', s.CLOSE);
+                
+                // Demo Buttons - Scoped to sidebar only
+                const demoGrid = document.getElementById('demo-actions');
+                if(demoGrid) {
+                    const demoBtns = demoGrid.querySelectorAll('button');
+                    if(demoBtns.length >= 4) {
+                        demoBtns[0].textContent = "Word";
+                        demoBtns[1].textContent = "Excel";
+                        demoBtns[2].textContent = "PDF";
+                        demoBtns[3].textContent = "HTML";
+                    }
+                }
+                
+                // PDF Controls
+                if(els.btnPdfView) els.btnPdfView.textContent = s.ORIGINAL_VIEW;
+                if(els.btnPdfEdit) els.btnPdfEdit.textContent = s.EDIT_MODE;
+                
+                if (state.activeId) app.renderToolbar(state.docs.find(d => d.id === state.activeId));
+            },
+            
+            // --- End Customization & Language Functions ---
+
+            confirmAction: (msg, callback) => {
+                els.confirmMsg.textContent = msg; els.confirmModal.classList.remove('hidden'); state.pendingCallback = callback;
+            },
+            closeModal: (type, confirmed) => {
+                if(type === 'confirm') {
+                    els.confirmModal.classList.add('hidden');
+                    if(confirmed && state.pendingCallback) state.pendingCallback();
+                    state.pendingCallback = null;
+                } else if(type === 'save') {
+                    els.saveModal.classList.add('hidden');
+                } else if(type === 'customize') {
+                    els.customizeModal.classList.add('hidden');
+                }
+            },
+
+            openSaveModal: () => {
+                const doc = state.docs.find(d => d.id === state.activeId);
+                if(!doc) return toast('No hay documento activo', 'error');
+                
+                if (els.saveName) els.saveName.value = doc.name.replace(/\.[^/.]+$/, "");
+
+                // Populate format options based on current document type
+                const formatOptions = [{val: doc.ext, txt: `Original (.${doc.ext})`}];
+                if (doc.mode === 'word' || doc.mode === 'pdf') {
+                      formatOptions.push({val: 'pdf', txt: 'Documento PDF (.pdf)'});
+                      formatOptions.push({val: 'docx', txt: 'Documento de Word (.docx)'});
+                      formatOptions.push({val: 'html', txt: 'Página Web (.html)'});
+                      formatOptions.push({val: 'txt', txt: 'Texto Plano (.txt)'});
+                } else if (doc.mode === 'excel') {
+                      formatOptions.push({val: 'csv', txt: 'Valores CSV (.csv)'});
+                } else if (doc.mode === 'code') {
+                      formatOptions.push({val: 'txt', txt: 'Texto Plano (.txt)'});
+                      if (doc.ext.startsWith('ht')) formatOptions.push({val: 'html', txt: 'Página Web (.html)'});
+                }
+                
+                els.saveFormat.innerHTML = formatOptions.map(opt => `<option value="${opt.val}">${opt.txt}</option>`).join('');
+                
+                els.saveModal.classList.remove('hidden');
+            },
+
+            confirmSave: () => {
+                const name = els.saveName.value || "documento";
+                const format = els.saveFormat.value;
+                els.saveModal.classList.add('hidden'); 
+                app.download(format, name);
+            },
+
+            addFiles: async (files) => {
+                app.loading(true);
+                const imgExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
+                const vidExts = ['mp4', 'webm', 'ogg', 'mov'];
+                for (const file of files) {
+                    try {
+                        const ext = file.name.split('.').pop().toLowerCase();
+                        const doc = {
+                            id: state.nextId++, name: file.name, ext: ext,
+                            content: '', grid: [], file: file, mode: 'unknown',
+                            pdfBuff: null, pdfExtracted: false, colWidths: [],
+                            // New properties for images/video
+                            zoom: 1, rotation: 0
+                        };
+
+                        if (['xlsx', 'xls', 'ods', 'csv'].includes(ext)) { doc.mode = 'excel'; await handlers.excel(doc); } 
+                        else if (['docx', 'doc', 'odt', 'rtf'].includes(ext)) { doc.mode = 'word'; await handlers.docx(doc); } 
+                        else if (ext === 'pdf') { doc.mode = 'pdf'; doc.pdfBuff = await file.arrayBuffer(); } 
+                        else if (['txt'].includes(ext)) { doc.mode = 'word'; await handlers.text(doc); } 
+                        else if (imgExts.includes(ext)) { doc.mode = 'image'; await handlers.media(doc); }
+                        else if (vidExts.includes(ext)) { doc.mode = 'video'; await handlers.media(doc); }
+                        else { doc.mode = 'code'; await handlers.text(doc); }
+                        
+                        if(doc.content || doc.grid.length > 0 || doc.pdfBuff || doc.mode === 'image' || doc.mode === 'video') {
+                            state.docs.push(doc);
+                            cache.save(doc); // Save to Cache
+                        }
+                    } catch (e) { console.error(e); toast(`Error cargando ${file.name}`, 'error'); }
+                }
+                if (state.docs.length > 0) {
+                    app.renderList();
+                    app.open(state.docs[state.docs.length - 1].id);
+                }
+                app.loading(false);
+            },
+
+            renderList: () => {
+                els.fileList.innerHTML = ''; els.fileCount.textContent = state.docs.length;
+                if(state.docs.length === 0) { els.fileList.innerHTML = `<div class="mt-20 flex flex-col items-center opacity-40"><i data-lucide="inbox" class="w-10 h-10 mb-2"></i><span class="text-sm">${lang.strings[lang.current].EMPTY}</span></div>`; lucide.createIcons(); return; }
+                state.docs.forEach(doc => {
+                    const el = document.createElement('div');
+                    const isActive = doc.id === state.activeId;
+                    el.className = `file-item ${isActive ? 'active' : ''}`;
+                    el.onclick = () => app.open(doc.id);
+                    let icon = 'file';
+                    if(['doc','docx','txt','odt'].includes(doc.ext)) icon = 'file-text';
+                    if(doc.ext === 'pdf') icon = 'book-open';
+                    if(['xls','xlsx','csv'].includes(doc.ext)) icon = 'table';
+                    if(['js','html','css','json','py','md','java'].includes(doc.ext)) icon = 'code-2';
+                    if(doc.mode === 'image') icon = 'image'; 
+                    if(doc.mode === 'video') icon = 'film'; 
+                    el.innerHTML = `<div class="flex items-center gap-3 overflow-hidden"><i data-lucide="${icon}" class="w-4 h-4 shrink-0"></i><span class="truncate font-medium">${doc.name}</span></div><button class="p-1.5 hover:bg-white/20 rounded-md transition-colors" onclick="event.stopPropagation(); app.close(${doc.id})"><i data-lucide="x" class="w-3 h-3"></i></button>`;
+                    els.fileList.appendChild(el);
+                });
+                lucide.createIcons();
+            },
+
+            close: (id) => {
+                state.docs = state.docs.filter(d => d.id !== id);
+                cache.remove(id); // Remove from Cache
+                if (state.activeId === id) {
+                    state.activeId = null; app.reset();
+                    if (state.docs.length) app.open(state.docs[state.docs.length - 1].id); else els.emptyState.classList.remove('hidden');
+                }
+                app.renderList();
+            },
+
+            open: (id) => {
+                if (state.activeId) app.syncContent();
+                state.activeId = id; app.renderList(); app.reset();
+                const doc = state.docs.find(d => d.id === id); if (!doc) return;
+
+                // Close sidebar on mobile when opening a file
+                if (window.innerWidth < 768) {
+                    const sidebar = document.getElementById('main-sidebar');
+                    if (!sidebar.classList.contains('-translate-x-full')) {
+                        app.toggleSidebar();
+                    }
+                }
+
+                document.getElementById('info-type').textContent = doc.ext.toUpperCase();
+                document.getElementById('info-stats').textContent = doc.name;
+
+                if (doc.mode === 'excel') {
+                    els.excelView.classList.remove('hidden'); renderExcel(doc);
+                } else if (doc.mode === 'word') {
+                    els.pageContainer.classList.remove('hidden'); els.pageDoc.classList.remove('hidden');
+                    els.pageDoc.innerHTML = doc.content;
+                } else if (doc.mode === 'pdf') {
+                    els.pageContainer.classList.remove('hidden'); els.pdfCtrls.classList.remove('hidden');
+                    app.togglePdfView('preview'); 
+                } else if (doc.mode === 'image') {
+                    els.imageViewer.classList.remove('hidden');
+                    els.imageDisplay.src = doc.content;
+                    app.applyImageTransform(doc);
+                } else if (doc.mode === 'video') {
+                    els.videoViewer.classList.remove('hidden');
+                    els.videoDisplay.src = doc.content;
+                } else {
+                    els.codeView.classList.remove('hidden'); els.input.value = doc.content;
+                    editor.highlight(doc.ext);
+                    const hasPreview = ['html', 'htm', 'md', 'svg', 'java'].includes(doc.ext);
+                    els.codeSplit.className = hasPreview ? 'code-split-container' : 'code-split-container code-full-width';
+                    editor.sync();
+                }
+                app.renderToolbar(doc);
+            },
+
+            reset: () => {
+                // Critical Fix: Explicitly hide all views including inline PDF display and Image Viewer
+                [els.pageContainer, els.excelView, els.codeView, els.emptyState, els.imageViewer, els.videoViewer].forEach(e => e.classList.add('hidden'));
+                els.pageDoc.classList.add('hidden'); 
+                els.pdfView.classList.add('hidden');
+                els.pdfView.style.display = 'none'; 
+                els.pdfCtrls.classList.add('hidden'); 
+                // Stop video playback when switching
+                els.videoDisplay.pause();
+                els.videoDisplay.src = "";
+                els.toolbar.innerHTML = '';
+            },
+
+            syncContent: () => {
+                const doc = state.docs.find(d => d.id === state.activeId); if (!doc) return;
+                if (doc.mode === 'word' || (doc.mode === 'pdf' && doc.pdfExtracted)) doc.content = els.pageDoc.innerHTML;
+                if (doc.mode === 'code') doc.content = els.input.value;
+                // Image content (src data) doesn't change on edit, but zoom/rotation are saved in doc object directly
+                
+                debouncedSave(doc); // Update Cache
+            },
+
+            togglePdfView: async (viewMode) => {
+                const doc = state.docs.find(d => d.id === state.activeId); if(!doc || doc.mode !== 'pdf') return;
+
+                if (viewMode === 'preview') {
+                    // Show Canvas, Hide Editor
+                    els.pdfView.classList.remove('hidden'); els.pdfView.style.display = 'flex'; els.pageDoc.classList.add('hidden');
+                    els.btnPdfView.classList.add('bg-blue-600'); els.btnPdfView.classList.remove('bg-transparent');
+                    els.btnPdfEdit.classList.remove('bg-blue-600'); els.btnPdfEdit.classList.add('bg-transparent');
+                    
+                    if (els.pdfView.children.length === 0) await renderPdfCanvas(doc);
+                } else {
+                    // Show Editor, Hide Canvas
+                    els.pdfView.classList.add('hidden'); els.pdfView.style.display = 'none'; els.pageDoc.classList.remove('hidden');
+                    els.btnPdfEdit.classList.add('bg-blue-600'); els.btnPdfEdit.classList.remove('bg-transparent');
+                    els.btnPdfView.classList.remove('bg-blue-600'); els.btnPdfView.classList.add('bg-transparent');
+
+                    if (!doc.pdfExtracted) {
+                        app.loading(true);
+                        try {
+                            const pdf = await pdfjsLib.getDocument({data: doc.pdfBuff.slice(0)}).promise;
+                            let extractedText = "";
+                            for (let i = 1; i <= pdf.numPages; i++) {
+                                const page = await pdf.getPage(i);
+                                const content = await page.getTextContent();
+                                const items = content.items.map(item => item.str).join(' ');
+                                extractedText += `<p>${items}</p><br>`;
+                            }
+                            doc.content = `<div class="doc-page">${extractedText || "<p>Sin texto extraíble.</p>"}</div>`;
+                            doc.pdfExtracted = true; els.pageDoc.innerHTML = doc.content;
+                            cache.save(doc); // Save extraction state
+                            toast('Texto extraído para edición', 'success');
+                        } catch(e) { console.error(e); toast('Error extrayendo texto', 'error'); }
+                        app.loading(false);
+                    } else { els.pageDoc.innerHTML = doc.content; }
+                }
+                app.renderToolbar(doc, viewMode === 'edit'); 
+            },
+
+            applyImageTransform: (doc) => {
+                if(!doc) return;
+                els.imageDisplay.style.transform = `scale(${doc.zoom}) rotate(${doc.rotation}deg)`;
+                cache.save(doc); // Save zoom/rotation
+            },
+
+            download: async (format, name) => {
+                const doc = state.docs.find(d => d.id === state.activeId);
+                if(!doc) return;
+                
+                if(format === doc.ext) format = doc.ext; // Use original format when requested
+                const finalName = name.endsWith(`.${format}`) ? name : `${name}.${format}`;
+
+                // --- Special Handling for PDF Source Files ---
+                // Ensure text is extracted if user wants to export PDF content to other text formats
+                if (doc.mode === 'pdf' && !doc.pdfExtracted && format !== 'pdf' && (format === 'docx' || format === 'txt' || format === 'html')) {
+                    app.loading(true);
+                    try {
+                        const pdf = await pdfjsLib.getDocument({data: doc.pdfBuff.slice(0)}).promise;
+                        let extractedText = "";
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                            const page = await pdf.getPage(i);
+                            const content = await page.getTextContent();
+                            const items = content.items.map(item => item.str).join(' ');
+                            extractedText += `<p>${items}</p><br>`;
+                        }
+                        doc.content = `<div class="doc-page">${extractedText || "<p>Sin texto extraíble.</p>"}</div>`;
+                        doc.pdfExtracted = true;
+                        if(els.pageDoc) els.pageDoc.innerHTML = doc.content;
+                    } catch(e) { 
+                        app.loading(false);
+                        return toast('Error al procesar PDF para exportación', 'error'); 
+                    }
+                    app.loading(false);
+                }
+
+                if (format === 'pdf') {
+                    if (doc.mode === 'pdf' && !doc.pdfExtracted) { // Download original PDF binary
+                        const blob = new Blob([doc.pdfBuff], {type: 'application/pdf'});
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a'); a.href = url; a.download = finalName; document.body.appendChild(a); a.click();
+                    } else if (doc.mode === 'image' || doc.mode === 'video') {
+                        const a = document.createElement('a'); a.href = doc.content; a.download = finalName; document.body.appendChild(a); a.click();
+                    } else { // Export current visible/edited content to PDF
+                        const el = doc.mode === 'excel' ? els.excelView : (doc.mode === 'word' || (doc.mode === 'pdf' && doc.pdfExtracted) ? els.pageDoc : document.querySelector('.editor-container-inner'));
+                        const opt = { margin: 0, filename: finalName, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+                        html2pdf().set(opt).from(el).save();
+                    }
+                } 
+                else if (format === 'html') {
+                    let content = "";
+                    if (doc.mode === 'word' || doc.mode === 'pdf') {
+                        // Styled HTML export for documents
+                        content = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${name}</title><style>body { background: #525659; display: flex; justify-content: center; padding: 20px; font-family: sans-serif; } .doc-page { background: white; width: 210mm; min-height: 297mm; padding: 2.54cm; box-shadow: 0 10px 15px rgba(0,0,0,0.1); color: #0f172a; line-height: 1.5; margin: 0 auto; }</style></head><body>${doc.content}</body></html>`;
+                    } else {
+                        content = (doc.mode === 'code') ? doc.content : `<pre>${doc.content}</pre>`;
+                    }
+                    downloadBlob(content, finalName, 'text/html');
+                }
+                // New logic to handle original binary files correctly (e.g. DOCX re-download)
+                else if (format === doc.ext && doc.file) {
+                    const url = URL.createObjectURL(doc.file);
+                    const a = document.createElement('a'); a.href = url; a.download = finalName; document.body.appendChild(a); a.click();
+                }
+                else if (format === 'docx' || format === 'doc') {
+                    // Export HTML as Word-compatible MHTML or HTML with MIME type
+                    // Using .doc extension is safer for HTML content opening in Word without warning
+                    const safeName = finalName.replace(/\.docx$/, '.doc');
+                    const content = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${doc.content}</body></html>`;
+                    downloadBlob(content, safeName, 'application/msword');
+                }
+                else if (format === 'csv' || format === doc.ext) { // Handle CSV export when asked for original CSV/Excel
+                    if(doc.mode === 'excel') downloadBlob(Papa.unparse(doc.grid), finalName, 'text/csv');
+                    else if (doc.mode === 'image' || doc.mode === 'video') {
+                        const a = document.createElement('a'); a.href = doc.content; a.download = finalName; document.body.appendChild(a); a.click();
+                    }
+                }
+                else { 
+                    // Fallback TXT
+                    const textContent = doc.content.replace(/<[^>]*>/g, '\n'); // Simple strip tags
+                    downloadBlob(textContent, finalName, 'text/plain'); 
+                }
+            },
+
+            loadDemo: (type) => {
+                if(type === 'word') {
+                    const newDoc = { id: state.nextId++, name: "Demo_Informe.docx", ext: "docx", mode: "word", content: `<div class="doc-page"><h1>Informe de Proyecto</h1><p>Demo de documento enriquecido.</p><ul><li>Elemento 1</li><li>Elemento 2</li></ul></div>`, grid: [], file: null };
+                    state.docs.push(newDoc); app.renderList(); app.open(newDoc.id); cache.save(newDoc);
+                } else if(type === 'html') {
+                    const newDoc = { id: state.nextId++, name: "Demo_Web.html", ext: "html", mode: "code", content: `<h1>Hola Mundo</h1>\n<p>Edita este HTML.</p>`, grid: [], file: null };
+                    state.docs.push(newDoc); app.renderList(); app.open(newDoc.id); cache.save(newDoc);
+                } else if(type === 'pdf') {
+                    try {
+                        const { jsPDF } = window.jspdf;
+                        const doc = new jsPDF(); doc.setFontSize(20); doc.text("Demo PDF Generado", 20, 20); doc.setFontSize(12); doc.text("Este es un PDF real generado en el navegador. (Página 1)", 20, 30);
+                        doc.addPage(); doc.text("Página 2 con más contenido.", 20, 30);
+                        const pdfData = doc.output('arraybuffer');
+                        const newDoc = { id: state.nextId++, name: "Demo_Reporte.pdf", ext: "pdf", mode: "pdf", pdfBuff: pdfData, pdfExtracted: false, content: null, grid: [], file: null };
+                        state.docs.push(newDoc); app.renderList(); app.open(newDoc.id); toast('Demo PDF Generado', 'success'); cache.save(newDoc);
+                    } catch (e) { toast("Error generando PDF", 'error'); } 
+                } else if(type === 'excel') {
+                    let csv = "ID,Nombre,Salario (USD),Estado\n";
+                    for(let i=1; i<=20; i++) csv += `${i},Empleado ${i},${30000+i*100},Activo\n`;
+                    const newDoc = { id: state.nextId++, name: "Demo_Excel.csv", ext: "csv", mode: "excel", content: csv, grid: Papa.parse(csv, {header: false}).data, file: null, colWidths: [] };
+                    state.docs.push(newDoc); app.renderList(); app.open(newDoc.id); toast('Demo Excel Generado', 'success'); cache.save(newDoc);
+                }
+            },
+
+            renderToolbar: (doc, isPdfEditing = false) => {
+                const t = els.toolbar; t.innerHTML = '';
+                const s = lang.strings[lang.current]; // Current Language
+                
+                const sep = () => { const s = document.createElement('div'); s.className = 'toolbar-separator'; t.appendChild(s); };
+                const btn = (icon, titleKey, action) => {
+                    const title = s[titleKey] || titleKey;
+                    const b = document.createElement('button'); b.className = 'tool-btn'; b.title = title;
+                    b.onmousedown = (e) => { e.preventDefault(); }; b.onclick = (e) => { e.preventDefault(); action(); };
+                    // Add TTS behavior
+                    b.onmouseover = () => speakText(title);
+                    b.onmouseout = stopSpeaking;
+
+                    b.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i>`; t.appendChild(b);
+                };
+                const colorInput = (icon, titleKey, cmd) => {
+                    const title = s[titleKey];
+                    const w = document.createElement('div'); w.className = 'relative flex items-center justify-center cursor-pointer tool-btn overflow-hidden'; w.title = title;
+                    w.onmouseover = () => speakText(title); w.onmouseout = stopSpeaking;
+
+                    w.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 relative z-10 pointer-events-none"></i><input type="color" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange="document.execCommand('${cmd}', false, this.value)">`;
+                    t.appendChild(w);
+                };
+                const select = (options, cmd, titleKey = "") => {
+                    const title = s[titleKey];
+                    const sEl = document.createElement('select'); sEl.className = 'tool-select';
+                    sEl.title = title;
+                    sEl.onmouseover = () => speakText(title); sEl.onmouseout = stopSpeaking;
+                    
+                    sEl.onchange = (e) => document.execCommand(cmd, false, e.target.value);
+                    options.forEach(o => { const opt = document.createElement('option'); opt.value = o.val; opt.text = o.txt; sEl.appendChild(opt); });
+                    t.appendChild(sEl);
+                };
+
+                // Show Word tools if mode is word OR (mode is pdf AND we are in edit view)
+                if (doc.mode === 'word' || (doc.mode === 'pdf' && isPdfEditing)) {
+                    btn('undo', 'TOOL_UNDO', () => document.execCommand('undo'));
+                    btn('redo', 'TOOL_REDO', () => document.execCommand('redo'));
+                    sep();
+                    select([{val:'Arial',txt:'Arial'}, {val:'Times New Roman',txt:'Times New Roman'}, {val:'Courier New',txt:'Courier'}, {val:'Georgia',txt:'Georgia'}, {val:'Verdana',txt:'Verdana'}], 'fontName', 'Seleccionar Fuente');
+                    const sizeInput = document.createElement('input');
+                    sizeInput.type = 'number'; sizeInput.className = 'tool-input'; sizeInput.value = 14; sizeInput.min = 8; sizeInput.max = 72; sizeInput.title = s.TOOL_SIZE;
+                    sizeInput.onmouseover = () => speakText(s.TOOL_SIZE); sizeInput.onmouseout = stopSpeaking;
+
+                    sizeInput.onchange = (e) => {
+                        const val = e.target.value;
+                        if(window.getSelection().rangeCount) {
+                            const span = `<span style="font-size:${val}px">${window.getSelection().toString()}</span>`;
+                            document.execCommand('insertHTML', false, span);
+                        }
+                    };
+                    t.appendChild(sizeInput);
+                    sep();
+                    btn('bold', 'TOOL_BOLD', () => document.execCommand('bold'));
+                    btn('italic', 'TOOL_ITALIC', () => document.execCommand('italic'));
+                    btn('underline', 'TOOL_UNDERLINE', () => document.execCommand('underline'));
+                    btn('strikethrough', 'TOOL_STRIKETHROUGH', () => document.execCommand('strikethrough'));
+                    sep();
+                    colorInput('type', 'TOOL_COLOR', 'foreColor');
+                    colorInput('highlighter', 'TOOL_HIGHLIGHT', 'hiliteColor');
+                    sep();
+                    btn('align-left', 'TOOL_ALIGN_LEFT', () => document.execCommand('justifyLeft'));
+                    btn('align-center', 'TOOL_ALIGN_CENTER', () => document.execCommand('justifyCenter'));
+                    btn('align-right', 'TOOL_ALIGN_RIGHT', () => document.execCommand('justifyRight'));
+                    btn('align-justify', 'TOOL_ALIGN_JUSTIFY', () => document.execCommand('justifyFull'));
+                    sep();
+                    btn('list', 'TOOL_BULLET', () => document.execCommand('insertUnorderedList'));
+                    btn('list-ordered', 'TOOL_NUMBER', () => document.execCommand('insertOrderedList'));
+                } else if (doc.mode === 'code') {
+                    btn('copy', 'TOOL_COPY', () => { navigator.clipboard.writeText(doc.content); toast('Copiado'); });
+                } else if (doc.mode === 'excel') {
+                    btn('plus-square', 'Añadir Fila', () => { doc.grid.push(new Array(doc.grid[0]?.length||1).fill("")); renderExcel(doc); debouncedSave(doc); });
+                    btn('minus-square', 'Eliminar Fila', () => { 
+                        if(state.selectedCell) { doc.grid.splice(state.selectedCell.r, 1); } else { doc.grid.pop(); } 
+                        renderExcel(doc); debouncedSave(doc); 
+                    });
+                    sep();
+                    btn('plus', 'Añadir Columna', () => { doc.grid.forEach(r => r.push("")); renderExcel(doc); debouncedSave(doc); });
+                    btn('minus', 'Eliminar Columna', () => { 
+                        const c = state.selectedCell ? state.selectedCell.c : (doc.grid[0]?.length - 1);
+                        if(c >= 0) { doc.grid.forEach(r => r.splice(c, 1)); if(doc.colWidths) doc.colWidths.splice(c,1); renderExcel(doc); debouncedSave(doc); }
+                    });
+                } else if (doc.mode === 'image') {
+                    btn('zoom-in', 'TOOL_ZOOM_IN', () => { doc.zoom += 0.1; app.applyImageTransform(doc); });
+                    btn('zoom-out', 'TOOL_ZOOM_OUT', () => { doc.zoom = Math.max(0.1, doc.zoom - 0.1); app.applyImageTransform(doc); });
+                    sep();
+                    btn('rotate-ccw', 'TOOL_ROTATE_LEFT', () => { doc.rotation -= 90; app.applyImageTransform(doc); });
+                    btn('rotate-cw', 'TOOL_ROTATE_RIGHT', () => { doc.rotation += 90; app.applyImageTransform(doc); });
+                } else if (doc.mode === 'video') {
+                    btn('play', 'TOOL_PLAY', () => { els.videoDisplay.paused ? els.videoDisplay.play() : els.videoDisplay.pause(); });
+                    btn('volume-x', 'TOOL_MUTE', () => { els.videoDisplay.muted = !els.videoDisplay.muted; toast(els.videoDisplay.muted ? "Silenciado" : "Sonido activado"); });
+                    sep();
+                    btn('rewind', 'TOOL_BACK_10', () => { els.videoDisplay.currentTime -= 10; });
+                    btn('fast-forward', 'TOOL_FWD_10', () => { els.videoDisplay.currentTime += 10; });
+                }
+                lucide.createIcons();
+            }
+        };
+
+        const handlers = {
+            text: (doc) => new Promise(resolve => {
+                const r = new FileReader();
+                r.onload = e => { 
+                    const raw = e.target.result;
+                    doc.content = doc.mode === 'code' ? raw : `<div class="doc-page">${raw.split('\n').map(l => `<p>${l}</p>`).join('')}</div>`;
+                    resolve(); 
+                };
+                r.readAsText(doc.file);
+            }),
+            excel: (doc) => new Promise(resolve => {
+                const r = new FileReader();
+                r.onload = e => {
+                    try {
+                        let data = [];
+                        if (doc.ext === 'csv') { const res = Papa.parse(e.target.result, {header: false}); data = res.data; }
+                        else { const wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'}); data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1, defval: ""}); }
+                        doc.grid = data.length ? data : [["",""]]; resolve();
+                    } catch(err) { toast('Error leyendo Excel', 'error'); resolve(); }
+                };
+                if(doc.ext === 'csv') r.readAsText(doc.file); else r.readAsArrayBuffer(doc.file);
+            }),
+            media: (doc) => new Promise(resolve => {
+                const r = new FileReader();
+                r.onload = e => {
+                    doc.content = e.target.result; // Data URL for image source
+                    resolve();
+                };
+                r.readAsDataURL(doc.file);
+            }),
+            docx: async (doc) => {
+                if (['doc', 'odt', 'rtf'].includes(doc.ext)) {
+                    return new Promise(resolve => {
+                        app.confirmAction(
+                            lang.strings[lang.current].WARN_OLD_FORMAT,
+                            () => {
+                                const r = new FileReader(); r.readAsText(doc.file, 'ISO-8859-1');
+                                r.onload = e => {
+                                     const raw = e.target.result.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                     doc.content = `<div class="doc-page"><pre style="white-space: pre-wrap; font-family: inherit;">${raw}</pre></div>`;
+                                     doc.mode = 'word';
+                                     toast(lang.strings[lang.current].WARN_BINARY_LOADED, 'warning'); resolve();
+                                };
+                            }
+                        );
+                    });
+                }
+                try {
+                    const ab = await doc.file.arrayBuffer();
+                    const res = await mammoth.convertToHtml({arrayBuffer: ab});
+                    doc.content = `<div class="doc-page">${res.value || "<p>Vacío</p>"}</div>`;
+                } catch(e) { doc.content = "<p>Error</p>"; toast('Error DOCX', 'error'); }
+            }
+        };
+
+        function renderExcel(doc) {
+            const data = doc.grid; const maxC = data.reduce((m, r) => Math.max(m, r.length), 0);
+            const widths = doc.colWidths || [];
+            let colGroups = '<colgroup><col style="width:40px">';
+            for(let c=0; c<maxC; c++) colGroups += `<col style="width:${widths[c] || 100}px">`;
+            colGroups += '</colgroup>';
+
+            let html = `<table class="excel-sheet">${colGroups}<thead><tr><th class="excel-corner"></th>`;
+            for(let c=0; c<maxC; c++) html += `<th class="excel-col-header" data-col="${c}">${getColName(c)}<div class="col-resizer" onmousedown="initResize(event, ${doc.id}, ${c})"></div></th>`;
+            html += `</tr></thead><tbody>`;
+            data.forEach((row, r) => {
+                html += `<tr><td class="excel-row-header">${r+1}</td>`;
+                for(let c=0; c<maxC; c++) {
+                    const val = (row[c] || "").toString().replace(/"/g, '&quot;');
+                    html += `<td class="excel-cell"><input type="text" class="cell-input" value="${val}" onfocus="app.selectCell(${r},${c})" onchange="updateCell(${doc.id},${r},${c},this.value)"></td>`;
+                }
+                html += `</tr>`;
+            });
+            els.excelView.innerHTML = html + `</tbody></table>`;
+        }
+
+        // Excel Resizing Logic
+        let resizingState = null;
+        window.initResize = (e, docId, colIndex) => {
+            e.preventDefault(); e.stopPropagation();
+            // Cast to HTMLElement to ensure offsetWidth exists
+            const headerElement = e.target.parentElement;
+            resizingState = { docId, colIndex, startX: e.pageX, startWidth: headerElement.offsetWidth };
+            headerElement.classList.add('resizing');
+            document.addEventListener('mousemove', onResize);
+            document.addEventListener('mouseup', endResize);
+        };
+        function onResize(e) {
+            if(!resizingState) return;
+            const diff = e.pageX - resizingState.startX;
+            const newW = Math.max(50, resizingState.startWidth + diff);
+            const doc = state.docs.find(d => d.id === resizingState.docId);
+            if(doc) {
+                if(!doc.colWidths) doc.colWidths = [];
+                doc.colWidths[resizingState.colIndex] = newW;
+                renderExcel(doc); 
+                debouncedSave(doc); // Save col width
+            }
+        }
+        function endResize() { 
+            if (resizingState) {
+                const headerElement = els.excelView.querySelector(`[data-col="${resizingState.colIndex}"]`);
+                if (headerElement) headerElement.classList.remove('resizing');
+            }
+            resizingState = null; 
+            document.removeEventListener('mousemove', onResize); 
+            document.removeEventListener('mouseup', endResize); 
+        }
+
+        async function renderPdfCanvas(doc) {
+            els.pdfView.innerHTML = '';
+            try {
+                const pdf = await pdfjsLib.getDocument({data: doc.pdfBuff.slice(0)}).promise;
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const scale = 1.5; 
+                    const viewport = page.getViewport({scale: scale});
+                    
+                    const canvas = document.createElement('canvas'); canvas.className = 'pdf-canvas';
+                    canvas.height = viewport.height; canvas.width = viewport.width; 
+                    canvas.style.width = '210mm'; canvas.style.height = 'auto'; 
+                    
+                    await page.render({canvasContext: canvas.getContext('2d'), viewport: viewport}).promise;
+                    els.pdfView.appendChild(canvas);
+                }
+            } catch(e) { toast('Error visualizando PDF', 'error'); }
+        }
+
+        const editor = {
+            sync: () => {
+                const val = els.input.value;
+                els.syntax.textContent = val + "\n"; delete els.syntax.dataset.highlighted; hljs.highlightElement(els.syntax);
+                els.lines.innerHTML = val.split('\n').map((_, i) => i+1).join('<br>'); editor.scroll();
+                const doc = state.docs.find(d => d.id === state.activeId);
+                if(doc && doc.mode === 'code') {
+                    app.syncContent();
+                    const frameDoc = els.previewFrame.contentDocument || els.previewFrame.contentWindow.document;
+                    frameDoc.open();
+                    if (['html', 'htm', 'svg'].includes(doc.ext)) { frameDoc.write(val); } 
+                    else if (['md', 'markdown'].includes(doc.ext)) { const html = marked.parse(val); frameDoc.write(`<style>body{font-family:sans-serif;padding:20px;line-height:1.6}img{max-width:100%}code{background:#f1f5f9;padding:2px 4px;border-radius:4px}</style>${html}`); } 
+                    else { frameDoc.write(`<style>body{font-family:sans-serif;color:#94a3b8;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#fff}</style><div style="text-align:center"><p style="font-size:13px;font-weight:500">Vista previa no disponible para .${doc.ext}</p></div>`); }
+                    frameDoc.close();
+                }
+            },
+            scroll: () => { els.syntax.parentElement.scrollTop = els.input.scrollTop; els.syntax.parentElement.scrollLeft = els.input.scrollLeft; els.lines.scrollTop = els.input.scrollTop; },
+            highlight: (ext) => { const map = { js:'javascript', html:'xml', css:'css', py:'python', json:'json', md:'markdown', java:'java' }; els.syntax.className = `language-${map[ext]||'plaintext'}`; }
+        };
+
+        function getColName(n) { let s = ""; n++; while (n > 0) { let rem = (n - 1) % 26; s = String.fromCharCode(65 + rem) + s; n = Math.floor((n - 1) / 26); } return s; }
+        function downloadBlob(content, name, mime) { const blob = new Blob([content], {type: `${mime};charset=utf-8`}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
+        window.updateCell = (id, r, c, val) => { const doc = state.docs.find(d => d.id === id); if(doc) { if(!doc.grid[r]) doc.grid[r] = []; doc.grid[r][c] = val; debouncedSave(doc); } };
+
+        // Initialize Cache immediately
+        cache.init();
+
+        document.getElementById('fileInput').onchange = (e) => { if(e.target.files.length) app.addFiles(Array.from(e.target.files)); e.target.value = ''; };
+        document.body.ondragover = e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; };
+        document.body.ondrop = e => { e.preventDefault(); if(e.dataTransfer.files.length) app.addFiles(Array.from(e.dataTransfer.files)); };
+    </script>
+</body>
+</html>
