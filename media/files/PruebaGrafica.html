@@ -1,0 +1,2021 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Los Visitantes - Novela Gráfica Interactiva</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Special+Elite&display=swap');
+
+        :root {
+            --primary-green: #4ade80;
+            --bg-dark: #050a05;
+            --overlay-black: rgba(0, 0, 0, 0.9);
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            font-family: 'Courier Prime', monospace;
+            overflow: hidden;
+            color: #d1d5db;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Efecto CRT y Scanlines */
+        .scanlines {
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.2) 50%,
+                rgba(0,0,0,0.2)
+            );
+            background-size: 100% 4px;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .crt-flicker {
+            animation: flicker 0.15s infinite;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(18, 16, 16, 0.1);
+            opacity: 0;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.02; } 5% { opacity: 0.05; } 10% { opacity: 0.02; }
+            15% { opacity: 0.06; } 20% { opacity: 0.02; } 50% { opacity: 0.02; }
+            55% { opacity: 0.05; } 60% { opacity: 0.02; } 65% { opacity: 0.04; }
+            70% { opacity: 0.02; } 100% { opacity: 0.02; }
+        }
+
+        /* --- Estilos Generales del Juego --- */
+        #game-stage {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        #scene-image-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0; left: 0;
+            z-index: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            padding-bottom: 100px; /* Default desktop padding */
+        }
+
+        #scene-image {
+            max-width: 90%;
+            max-height: 65vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            border: 6px solid #ffffff;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.8);
+            display: none;
+            transition: opacity 0.5s ease;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        /* Cajas de texto y Opciones */
+        .dialogue-box {
+            position: absolute;
+            bottom: 30px; left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 1000px;
+            background: var(--overlay-black);
+            border: 2px solid var(--primary-green);
+            padding: 20px;
+            min-height: 120px;
+            pointer-events: auto;
+            box-shadow: 0 0 10px rgba(74, 222, 128, 0.2);
+            border-radius: 4px;
+            z-index: 25;
+        }
+
+        .character-name {
+            color: var(--primary-green);
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+
+        .dialogue-text { color: #ecfdf5; font-size: 1.0rem; line-height: 1.6; text-align: justify; }
+
+        .choices-container {
+            position: absolute;
+            top: 20px; right: 5%;
+            width: 400px;
+            display: flex; flex-direction: column; gap: 10px;
+            pointer-events: auto;
+            z-index: 30;
+        }
+
+        .choice-btn {
+            background: rgba(10, 20, 10, 0.95);
+            border: 1px solid var(--primary-green);
+            color: #e5e7eb;
+            padding: 15px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s;
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.95rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .choice-btn:hover, .choice-btn:active {
+            background: var(--primary-green); color: #000; border-color: #000;
+            box-shadow: -5px 5px 0px rgba(0,0,0,0.5);
+        }
+
+        /* --- PANTALLA DE LOGIN --- */
+        #login-screen {
+            position: absolute;
+            z-index: 60; /* Encima de todo */
+            width: 100%; height: 100%;
+            background-color: #050a05;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            border: 2px solid var(--primary-green);
+            padding: 40px;
+            background: rgba(0, 20, 0, 0.9);
+            box-shadow: 0 0 20px rgba(74, 222, 128, 0.3);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .login-input {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--primary-green);
+            color: var(--primary-green);
+            padding: 12px;
+            margin-bottom: 15px;
+            font-family: 'Courier Prime', monospace;
+            font-size: 1rem;
+        }
+
+        .login-btn {
+            background: var(--primary-green);
+            color: #000;
+            padding: 12px 20px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px;
+            font-family: 'Courier Prime', monospace;
+            transition: transform 0.1s;
+            font-size: 1rem;
+        }
+        
+        .login-btn:hover { transform: scale(1.05); }
+        .login-btn.secondary { background: transparent; border: 1px solid var(--primary-green); color: var(--primary-green); }
+
+        .error-msg { color: #ef4444; font-size: 0.9rem; margin-top: 10px; min-height: 20px;}
+
+        /* --- HUD DE USUARIO --- */
+        #user-hud {
+            position: absolute;
+            top: 20px; left: 20px;
+            z-index: 55;
+            display: none; /* Oculto hasta login */
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+            background: rgba(0,0,0,0.8);
+            padding: 8px 15px;
+            border: 1px solid var(--primary-green);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background 0.3s;
+            max-width: 45%; /* Prevent overlap on mobile */
+        }
+
+        #user-hud:hover {
+            background: rgba(74, 222, 128, 0.2);
+        }
+
+        .user-avatar {
+            min-width: 30px; width: 30px; height: 30px;
+            background: var(--primary-green);
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            color: #000; font-weight: bold;
+        }
+
+        .user-email-display {
+            color: var(--primary-green); font-size: 0.8rem;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            max-width: 150px;
+        }
+
+        .logout-btn {
+            font-size: 0.7rem; color: #ef4444; cursor: pointer; text-decoration: underline; margin-left: 5px;
+        }
+
+        /* --- MODAL DE HISTORIAL --- */
+        #history-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 70;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .history-container {
+            width: 90%;
+            max-width: 800px;
+            max-height: 85%;
+            border: 2px solid var(--primary-green);
+            background: #050a05;
+            padding: 30px;
+            overflow-y: auto;
+            box-shadow: 0 0 30px rgba(74, 222, 128, 0.1);
+        }
+
+        /* Estilos para el resumen de estadísticas */
+        .stats-summary {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #1f2937;
+            padding-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .stat-box {
+            background: rgba(6, 78, 59, 0.3);
+            border: 1px solid var(--primary-green);
+            padding: 15px;
+            text-align: center;
+            flex: 1 1 100px; /* Responsive flex */
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-green);
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: #9ca3af;
+            text-transform: uppercase;
+        }
+
+        /* Estilos para la lista de finales */
+        .endings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .ending-card {
+            background: #111;
+            border: 1px solid #333;
+            padding: 10px;
+            position: relative;
+        }
+
+        .ending-card.unlocked {
+            border-color: var(--primary-green);
+            background: rgba(74, 222, 128, 0.05);
+        }
+
+        .ending-title { font-weight: bold; margin-bottom: 5px; }
+        .ending-card.locked .ending-title { color: #ef4444; }
+        .ending-card.unlocked .ending-title { color: var(--primary-green); }
+        .ending-desc { font-size: 0.8rem; color: #9ca3af; }
+
+        .section-title {
+            color: var(--primary-green);
+            border-bottom: 2px solid var(--primary-green);
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+            font-family: 'Special Elite', cursive;
+            font-size: 1.2rem;
+        }
+
+        .retro-table {
+            width: 100%;
+            border-collapse: collapse;
+            color: var(--primary-green);
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.8rem;
+        }
+
+        .retro-table th, .retro-table td {
+            border: 1px solid #1f2937;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .retro-table th {
+            background-color: #064e3b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .close-history-btn {
+            margin-top: 20px;
+            background: transparent;
+            border: 2px solid #ef4444;
+            color: #ef4444;
+            padding: 12px 30px;
+            cursor: pointer;
+            font-family: 'Courier Prime', monospace;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        .close-history-btn:hover { background: #ef4444; color: #000; }
+
+        /* --- AI MODE STYLES --- */
+        #ai-toggle-container {
+            position: absolute;
+            top: 20px; right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+            z-index: 55;
+        }
+
+        .ai-toggle-btn {
+            background: rgba(0,0,0,0.8);
+            border: 2px solid #444;
+            color: #888;
+            padding: 8px 15px;
+            font-family: 'Courier Prime', monospace;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.8rem;
+        }
+
+        .ai-toggle-btn.active {
+            border-color: #ef4444;
+            color: #ef4444;
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+            text-shadow: 0 0 5px #ef4444;
+        }
+
+        .ai-warning {
+            position: absolute;
+            top: 60px;
+            width: 90%;
+            left: 5%;
+            text-align: center;
+            color: #ef4444;
+            font-size: 0.75rem;
+            background: rgba(0,0,0,0.9);
+            border: 1px solid #ef4444;
+            padding: 5px;
+            z-index: 100;
+            pointer-events: none;
+            display: none;
+        }
+
+        #chat-interface {
+            display: none; 
+            flex-direction: column;
+            width: 100%;
+            gap: 10px;
+        }
+
+        .chat-input {
+            width: 100%;
+            background: rgba(0,0,0,0.9);
+            border: 1px solid var(--primary-green);
+            color: var(--primary-green);
+            padding: 12px;
+            font-family: 'Courier Prime', monospace;
+            outline: none;
+            font-size: 1rem;
+        }
+        .chat-input:focus { box-shadow: 0 0 10px rgba(74, 222, 128, 0.3); }
+
+        .chat-send-btn, .decision-btn {
+            padding: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: 'Courier Prime', monospace;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+        }
+
+        .chat-send-btn { background: var(--primary-green); color: #000; border: none; }
+        .chat-send-btn:hover { background: #22c55e; }
+        .chat-send-btn:disabled { background: #555; cursor: not-allowed; }
+
+        .decision-btn {
+            background: #ef4444; color: #fff; border: 1px solid #ef4444;
+            margin-top: 10px; width: 100%;
+        }
+        .decision-btn:hover { background: #b91c1c; }
+        
+        .back-btn {
+            background: rgba(0,0,0,0.8);
+            border: 1px solid #9ca3af;
+            color: #9ca3af;
+            padding: 10px;
+            margin-top: 10px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            text-align: center;
+            font-family: 'Courier Prime', monospace;
+            width: 100%;
+        }
+        .back-btn:hover { background: #374151; color: #fff; }
+
+
+        /* --- Tipografías Específicas --- */
+        .shaky-text { display: inline-block; animation: shake 0.5s infinite; font-weight: bold; color: #fca5a5; }
+        .whisper-text { font-style: italic; font-size: 0.9rem; color: #d6d3d1; }
+        .monster-text { font-family: 'Special Elite', cursive; color: #bef264; }
+        .title-glitch { 
+            font-size: 4rem; color: var(--primary-green); 
+            text-shadow: 2px 2px #064e3b; margin-bottom: 2rem; 
+            font-family: 'Special Elite', cursive; 
+            line-height: 1.1;
+        }
+        
+        /* Menu Principal */
+        #main-menu {
+            position: absolute; z-index: 50; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #0a1f0a 0%, #000000 100%);
+            display: none; /* Oculto hasta login */
+            flex-direction: column; justify-content: center; align-items: center; text-align: center;
+            padding: 20px;
+        }
+        .start-btn {
+            background: transparent; border: 2px solid var(--primary-green); color: var(--primary-green);
+            padding: 15px 40px; font-size: 1.5rem; cursor: pointer;
+            transition: all 0.3s; font-family: 'Courier Prime', monospace;
+            margin-top: 20px;
+        }
+        .start-btn:hover { background: var(--primary-green); color: #000; box-shadow: 0 0 20px var(--primary-green); }
+        .img-placeholder-info {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.7); padding: 20px; border: 1px dashed red;
+            color: yellow; text-align: center; pointer-events: none; z-index: 2; max-width: 80%;
+        }
+
+        /* --- MEDIA QUERIES FOR MOBILE --- */
+        @media (max-width: 768px) {
+            .title-glitch { font-size: 2.5rem; }
+            .start-btn { font-size: 1.2rem; padding: 12px 30px; }
+            
+            #game-stage {
+                justify-content: flex-start; /* Start from top */
+            }
+
+            #scene-image-container {
+                height: 50%; /* Image takes top half */
+                align-items: center;
+                padding-bottom: 0;
+                top: 0;
+            }
+
+            #scene-image {
+                max-height: 45vh; /* Limit image height */
+                max-width: 95%;
+                border-width: 3px;
+            }
+
+            /* Move UI elements to bottom half */
+            #ui-layer {
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-end;
+                pointer-events: none; /* Let clicks pass through empty areas */
+            }
+
+            .dialogue-box {
+                position: relative;
+                bottom: 0; left: 0;
+                transform: none;
+                width: 100%;
+                border-left: none; border-right: none; border-bottom: none;
+                border-radius: 0;
+                padding: 15px;
+                min-height: auto;
+                max-height: 30vh;
+                overflow-y: auto;
+                order: 2; /* Dialog at very bottom */
+            }
+
+            .choices-container {
+                position: relative;
+                top: auto; right: auto;
+                width: 100%;
+                padding: 10px;
+                order: 1; /* Choices above dialog */
+                background: rgba(0,0,0,0.5); /* Slight background for readability */
+            }
+
+            /* Adjust HUDs */
+            #user-hud {
+                top: 10px; left: 10px;
+                padding: 5px 10px;
+                font-size: 0.7rem;
+            }
+            .user-avatar { width: 24px; height: 24px; min-width: 24px; }
+            .user-email-display { max-width: 100px; }
+
+            #ai-toggle-container {
+                top: 10px; right: 10px;
+            }
+            #ai-toggle-container span { display: none; } /* Hide label text */
+            .ai-toggle-btn { padding: 5px 10px; font-size: 0.7rem; }
+
+            .ai-warning { top: 50px; font-size: 0.65rem; }
+
+            /* Login adjustments */
+            .login-container { padding: 20px; }
+            
+            /* History adjustments */
+            .history-container { padding: 15px; max-height: 90%; }
+            .retro-table { font-size: 0.7rem; }
+            .retro-table th, .retro-table td { padding: 5px; }
+            .stat-value { font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    <div class="crt-flicker"></div>
+    
+    <div id="ai-warning-banner" class="ai-warning">
+        ⚠ MODO IA ACTIVO: Progreso sin estadísticas.
+    </div>
+
+    <!-- ASSETS STORAGE (Hidden) -->
+    <div id="assets-storage" style="display:none;">
+        <div id="chat-interface">
+            <input type="text" id="user-input" class="chat-input" placeholder="Escribe tu respuesta..." autocomplete="off">
+            <button id="send-btn" class="chat-send-btn" onclick="handleAIChat()">ENVIAR MENSAJE</button>
+            <button id="show-choices-btn" class="decision-btn" onclick="showStandardChoices()">TOMAR DECISIÓN / ACCIÓN</button>
+        </div>
+    </div>
+
+    <!-- PANTALLA DE LOGIN (SUPABASE) -->
+    <div id="login-screen">
+        <div class="login-container">
+            <h2 style="color: var(--primary-green); font-size: 1.5rem; margin-bottom: 20px;">ACCESO RESTRINGIDO<br>FEMA-NET</h2>
+            <input type="email" id="email" class="login-input" placeholder="Correo Electrónico">
+            <input type="password" id="password" class="login-input" placeholder="Contraseña">
+            
+            <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                <button class="login-btn" onclick="handleLogin()">INICIAR SESIÓN</button>
+                <button class="login-btn secondary" onclick="handleSignUp()">REGISTRARSE</button>
+            </div>
+            
+            <div id="login-error" class="error-msg"></div>
+            <p style="font-size: 0.7rem; color: #666; margin-top: 10px;">Conexión segura v4.2.</p>
+        </div>
+    </div>
+
+    <!-- HUD DE USUARIO (Visible tras login) -->
+    <div id="user-hud" onclick="toggleHistory()">
+        <div class="user-avatar">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 16px; height: 16px;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
+        </div>
+        <div style="display: flex; flex-direction: column;">
+            <span id="user-email-display" class="user-email-display">usuario@fema.net</span>
+            <span style="font-size: 0.6rem; color: #9ca3af;">[HISTORIAL]</span>
+        </div>
+        <span class="logout-btn" onclick="event.stopPropagation(); handleLogout()">[X]</span>
+    </div>
+
+    <!-- MODAL DE HISTORIAL -->
+    <div id="history-modal">
+        <h2 class="title-glitch" style="font-size: 1.8rem; margin-bottom: 1rem;">EXPEDIENTE</h2>
+        <div class="history-container">
+            <div id="loading-history" style="text-align: center; color: var(--primary-green);">Cargando...</div>
+            
+            <div id="history-content" style="display: none;">
+                <!-- SECCIÓN 1: TOTALES -->
+                <h3 class="section-title">ESTADÍSTICAS</h3>
+                <div class="stats-summary">
+                    <div class="stat-box">
+                        <span id="total-lies" class="stat-value">0</span>
+                        <span class="stat-label">Mentiras</span>
+                    </div>
+                    <div class="stat-box">
+                        <span id="total-accepted" class="stat-value">0</span>
+                        <span class="stat-label">Aceptados</span>
+                    </div>
+                    <div class="stat-box">
+                        <span id="total-rejected" class="stat-value">0</span>
+                        <span class="stat-label">Rechazados</span>
+                    </div>
+                    <div class="stat-box">
+                        <span id="total-eliminated" class="stat-value">0</span>
+                        <span class="stat-label">Eliminados</span>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 2: FINALES -->
+                <h3 class="section-title">FINALES</h3>
+                <div id="endings-list" class="endings-grid">
+                    <!-- Generado por JS -->
+                </div>
+
+                <!-- SECCIÓN 3: TABLA -->
+                <h3 class="section-title">REGISTRO</h3>
+                <div style="overflow-x: auto;">
+                    <table class="retro-table" id="history-table">
+                        <thead>
+                            <tr>
+                                <th>FECHA</th>
+                                <th>FINAL</th>
+                                <th>MENTIRAS</th>
+                                <th>ACEPT</th>
+                                <th>RECH</th>
+                                <th>ELIM</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-body">
+                            <!-- Filas generadas por JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <button class="close-history-btn" onclick="toggleHistory()">CERRAR</button>
+    </div>
+
+    <!-- MENÚ PRINCIPAL DEL JUEGO -->
+    <div id="main-menu">
+        <div id="ai-toggle-container">
+            <span style="font-size: 0.8rem; color: #666;">PROTOCOLO EXPERIMENTAL:</span>
+            <button id="ai-toggle-btn" class="ai-toggle-btn" onclick="toggleAIMode()">MODO IA: OFF</button>
+        </div>
+
+        <h1 class="title-glitch">NO ABRAS<br>LA PUERTA</h1>
+        <p class="mb-8 text-green-700 italic">Una novela gráfica interactiva</p>
+        <button class="start-btn" onclick="startGame()">INICIAR PROTOCOLO</button>
+    </div>
+
+    <!-- ESCENARIO DEL JUEGO -->
+    <div id="game-stage" style="display: none;">
+        <div id="scene-image-container">
+            <img id="scene-image" src="" alt="Cargando escena...">
+            <div id="alt-text-display" class="img-placeholder-info"></div>
+        </div>
+
+        <div id="ui-layer">
+            <div id="choices-container" class="choices-container">
+                <!-- Aquí se inyectan las opciones O el chat -->
+            </div>
+            <div id="dialogue-box" class="dialogue-box">
+                <div id="char-name" class="character-name"></div>
+                <div id="dialogue-text" class="dialogue-text"></div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- CONFIGURACIÓN SUPABASE ---
+    const SUPABASE_URL = 'https://vuldyrargrsemiujxjub.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_1pesPgaYGRaVva7KWt481A_RwGwHOT4'; 
+    
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    let currentUser = null;
+
+    // --- CONFIGURACIÓN GROQ API ---
+    const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+    const GROQ_MODEL = "llama-3.3-70b-versatile";
+    const GROQ_API_KEY = "";
+
+    // --- DEFINICIÓN DE FINALES ---
+    const ALL_ENDINGS = {
+        'ending_fema': { title: "Rescate FEMA", desc: "Has sobrevivido y el equipo de rescate te ha encontrado." },
+        'ending_death_lie': { title: "Mentira Fatal", desc: "El Visitante detectó tu mentira sobre la soledad." },
+        'ending_death_alone': { title: "Cena Solitaria", desc: "Estabas realmente solo y el Visitante entró." },
+        'ending_betrayal_aris': { title: "Falsa Higiene", desc: "La Dra. Aris te entregó a la entidad." },
+        'ending_betrayal_elena': { title: "Luto Hambriento", desc: "Elena te usó como ofrenda para su marido." },
+        'ending_betrayal_both': { title: "Festín Completo", desc: "Fuiste traicionado por ambas invitadas." }
+    };
+
+    // --- FUNCIONES DE AUTENTICACIÓN ---
+    
+    async function checkSession() {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) {
+            currentUser = session.user;
+            showAuthenticatedUI(session.user.email);
+        } else {
+            document.getElementById('login-screen').style.display = 'flex';
+        }
+    }
+
+    async function handleLogin() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const errorDiv = document.getElementById('login-error');
+        
+        errorDiv.innerText = "Conectando...";
+
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email: email,
+            password: password,
+        });
+
+        if (error) {
+            errorDiv.innerText = "Error: " + error.message;
+        } else {
+            errorDiv.innerText = "Acceso concedido.";
+            currentUser = data.user;
+            showAuthenticatedUI(data.user.email);
+        }
+    }
+
+    async function handleSignUp() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const errorDiv = document.getElementById('login-error');
+
+        errorDiv.innerText = "Registrando...";
+
+        const { data, error } = await supabaseClient.auth.signUp({
+            email: email,
+            password: password,
+        });
+
+        if (error) {
+            errorDiv.innerText = "Error: " + error.message;
+        } else {
+            errorDiv.innerText = "Registro exitoso.";
+            if (data.session) {
+                currentUser = data.user;
+                showAuthenticatedUI(data.user.email);
+            }
+        }
+    }
+
+    async function handleLogout() {
+        await supabaseClient.auth.signOut();
+        location.reload(); 
+    }
+
+    function showAuthenticatedUI(email) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('main-menu').style.display = 'flex';
+        const hud = document.getElementById('user-hud');
+        hud.style.display = 'flex';
+        document.getElementById('user-email-display').innerText = email;
+    }
+
+    // --- LÓGICA DE HISTORIAL Y ESTADÍSTICAS ---
+
+    let isHistoryOpen = false;
+
+    async function toggleHistory() {
+        const modal = document.getElementById('history-modal');
+        isHistoryOpen = !isHistoryOpen;
+
+        if (isHistoryOpen) {
+            modal.style.display = 'flex';
+            loadGameHistory();
+        } else {
+            modal.style.display = 'none';
+        }
+    }
+
+    async function loadGameHistory() {
+        const loader = document.getElementById('loading-history');
+        const content = document.getElementById('history-content');
+        const tbody = document.getElementById('history-body');
+        const endingsList = document.getElementById('endings-list');
+
+        // Reset display
+        loader.style.display = 'block';
+        content.style.display = 'none';
+        tbody.innerHTML = '';
+        endingsList.innerHTML = '';
+
+        if (!currentUser) return;
+
+        const { data, error } = await supabaseClient
+            .from('game_sessions')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false });
+
+        loader.style.display = 'none';
+
+        if (error) {
+            loader.innerText = "Error: " + error.message;
+            loader.style.display = 'block';
+            return;
+        }
+
+        content.style.display = 'block';
+
+        if (data.length === 0) {
+            updateStatsZeros();
+            renderEndings(new Set());
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Sin registros.</td></tr>';
+            return;
+        }
+
+        let totalLies = 0, totalAcc = 0, totalRej = 0, totalElim = 0;
+        const unlockedEndings = new Set();
+
+        data.forEach(session => {
+            totalLies += (session.lies_count || 0);
+            totalAcc += (session.visitors_accepted || 0);
+            totalRej += (session.visitors_rejected || 0);
+            totalElim += (session.visitors_eliminated || 0);
+            
+            if (session.ending_id) unlockedEndings.add(session.ending_id);
+
+            const date = new Date(session.created_at).toLocaleDateString();
+            const row = `
+                <tr>
+                    <td>${date}</td>
+                    <td>${session.ending_id ? session.ending_id.replace('ending_', '') : '-'}</td>
+                    <td>${session.lies_count}</td>
+                    <td>${session.visitors_accepted}</td>
+                    <td>${session.visitors_rejected}</td>
+                    <td>${session.visitors_eliminated}</td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+        });
+
+        document.getElementById('total-lies').innerText = totalLies;
+        document.getElementById('total-accepted').innerText = totalAcc;
+        document.getElementById('total-rejected').innerText = totalRej;
+        document.getElementById('total-eliminated').innerText = totalElim;
+
+        renderEndings(unlockedEndings);
+    }
+
+    function updateStatsZeros() {
+        document.getElementById('total-lies').innerText = '0';
+        document.getElementById('total-accepted').innerText = '0';
+        document.getElementById('total-rejected').innerText = '0';
+        document.getElementById('total-eliminated').innerText = '0';
+    }
+
+    function renderEndings(unlockedSet) {
+        const container = document.getElementById('endings-list');
+        
+        for (const [key, info] of Object.entries(ALL_ENDINGS)) {
+            const isUnlocked = unlockedSet.has(key);
+            const cssClass = isUnlocked ? 'unlocked' : 'locked';
+            const icon = isUnlocked ? '🔓' : '🔒';
+            const title = isUnlocked ? info.title : '??? (Bloqueado)';
+            const desc = isUnlocked ? info.desc : 'Juega para descubrir.';
+
+            const card = `
+                <div class="ending-card ${cssClass}">
+                    <div class="ending-title">${icon} ${title}</div>
+                    <div class="ending-desc">${desc}</div>
+                </div>
+            `;
+            container.innerHTML += card;
+        }
+    }
+
+    // --- LÓGICA DE GUARDADO DE PARTIDA ---
+
+    async function saveGameSession(endingId) {
+        // Bloquear guardado en modo IA
+        if (state.aiMode) {
+            console.log("Modo IA activo: Estadísticas deshabilitadas.");
+            return;
+        }
+
+        if (!currentUser) return;
+        
+        console.log("Guardando sesión en Supabase...");
+        
+        const { error } = await supabaseClient
+            .from('game_sessions')
+            .insert({
+                user_id: currentUser.id,
+                ending_id: endingId,
+                lies_count: state.stats.lies,
+                visitors_accepted: state.stats.accepted,
+                visitors_rejected: state.stats.rejected,
+                visitors_eliminated: state.stats.eliminated
+            });
+
+        if (error) {
+            console.error("Error guardando partida:", error);
+        } else {
+            console.log("Partida guardada exitosamente.");
+        }
+    }
+
+
+    // Ejecutar comprobación al cargar
+    checkSession();
+
+
+    // --- LÓGICA DEL JUEGO E IA ---
+
+    const state = {
+        currentScene: null,
+        visitorsInside: [], 
+        arisIsImpostor: false, 
+        elenaIsImpostor: true, 
+        leoIsImpostor: false,
+        isGameOver: false,
+        stats: {
+            lies: 0,
+            accepted: 0,
+            rejected: 0,
+            eliminated: 0
+        },
+        aiMode: false,
+        aiHistory: [], // Historial de chat actual
+        tempSceneChoices: [], // Guardar las opciones originales
+        sceneHistory: [] // Para botón "Volver"
+    };
+
+    function toggleAIMode() {
+        state.aiMode = !state.aiMode;
+        const btn = document.getElementById('ai-toggle-btn');
+        const warning = document.getElementById('ai-warning-banner');
+
+        if (state.aiMode) {
+            btn.classList.add('active');
+            btn.innerText = "MODO IA: ON";
+            warning.style.display = 'block';
+        } else {
+            btn.classList.remove('active');
+            btn.innerText = "MODO IA: OFF";
+            warning.style.display = 'none';
+        }
+    }
+
+    // Identificar el "sistema" o personaje actual basado en la escena
+    function getCurrentCharacterContext() {
+        const id = state.currentScene;
+        // Devuelve el ID interno del personaje para mapear decisiones
+        
+        // Exclude specific transition scenes from AI chat
+        if (id === 'pale_visitor_leave_threat' || 
+            id === 'pale_visitor_caught_lie_but_continue' || 
+            id.startsWith('transition_')) return null;
+
+        if (id.includes('aris')) return { id: 'aris', name: "Dra. Aris", context: "Eres la Dra. Aris, una higienista obsesionada con la limpieza y los protocolos en un apocalipsis de miméticos. Eres fría, clínica y arrogante. Sospechas que el jugador está sucio." };
+        if (id.includes('leo')) return { id: 'leo', name: "Leo", context: "Eres Leo, un repartidor paranoico y hacker conspiranoico. Llevas gafas de sol rotas. Hablas rápido, con miedo, mencionando 'estática', 'hombres sin cara' y 'código corrupto'. Estás desesperado por entrar." };
+        if (id.includes('elena')) return { id: 'elena', name: "Elena", context: "Eres Elena, una viuda de luto riguroso. Hablas en susurros tristes y poéticos. Tu marido muerto te persigue (o eso dices). Eres inquietante, hueles a tierra mojada." };
+        if (id.includes('pale')) return { id: 'pale', name: "El Visitante Pálido", context: "Eres el Visitante Pálido, una entidad monstruosa e inhumana que imita la cortesía. Sonríes demasiado. Eres el depredador final. Buscas mentiras y soledad." };
+        return null;
+    }
+
+    // Mapa de decisiones finales para modo IA
+    function getDecisionActionsForCharacter(charId) {
+        // Special handling for the final threat scene
+        if (state.currentScene === 'pale_visitor_leave_threat') {
+             return [
+                { text: "IR AL SALÓN", action: 'start_elimination', next: 'elimination_loop' }
+            ];
+        }
+
+        switch(charId) {
+            case 'aris':
+                return [
+                    { text: "PERMITIR ACCESO A ARIS", action: 'allow_aris', next: 'transition_to_leo' },
+                    { text: "RECHAZAR Y CERRAR PUERTA", action: 'deny_aris', next: 'transition_to_leo' }
+                ];
+            case 'leo':
+                return [
+                    { text: "DEJAR ENTRAR A LEO", action: 'allow_leo', next: 'transition_to_elena' },
+                    { text: "ECHAR A LEO", action: 'deny_leo', next: 'transition_to_elena' }
+                ];
+            case 'elena':
+                return [
+                    { text: "INVITAR A ELENA", action: 'allow_elena', next: 'group_scene' },
+                    { text: "DENEGAR REFUGIO", action: 'deny_elena', next: 'group_scene' }
+                ];
+            case 'pale':
+                return [
+                    { text: "CONFESAR: ESTOY SOLO", specialHandler: () => checkPaleVisitorOutcome(true) },
+                    { text: "AFIRMAR: ESTOY ACOMPAÑADO", specialHandler: () => checkPaleVisitorOutcome(false) },
+                    { text: "PREGUNTAR QUIÉN ES EL IMPOSTOR", specialHandler: () => askImpostorDetails() }
+                ];
+            default: return [];
+        }
+    }
+
+    function askImpostorDetails() {
+        const inputField = document.getElementById('user-input');
+        inputField.value = "¿Quién de ellos es el impostor?";
+        handleAIChat();
+    }
+
+    async function handleAIChat() {
+        const inputField = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const userText = inputField.value.trim();
+
+        if (!userText) return;
+
+        // UI Feedback
+        inputField.value = "";
+        inputField.disabled = true;
+        sendBtn.innerText = "...";
+        sendBtn.disabled = true;
+
+        const charCtx = getCurrentCharacterContext();
+        if (!charCtx) {
+            alert("No hay nadie con quien hablar aquí.");
+            resetChatUI();
+            return;
+        }
+
+        // --- 1. DETECCIÓN DE PALABRAS CLAVE (INTENT DETECTION) ---
+        const lowerText = userText.toLowerCase();
+        let detectedAction = null;
+
+        // Lógica especial para Pale Visitor
+        if (charCtx.id === 'pale') {
+            if (state.currentScene === 'pale_visitor_leave_threat') {
+                // Ya no hacemos nada especial aquí, dejamos que la IA conteste y luego el usuario use el botón
+            } else {
+                if (/(solo|nadie|vacio|unico)/i.test(lowerText) && !/(no estoy|acompañado)/i.test(lowerText)) {
+                    detectedAction = { specialHandler: () => checkPaleVisitorOutcome(true) };
+                } else if (/(acompañado|gente|amigos|hay más|somos|grupo)/i.test(lowerText)) {
+                    detectedAction = { specialHandler: () => checkPaleVisitorOutcome(false) };
+                }
+            }
+        } 
+        // Lógica estándar (Entrar vs Salir)
+        else {
+            if (/(entra|pasa|adelante|puedes pasar|te dejo entrar|bienvenido|abre|abro)/i.test(lowerText) && !/(no|nunca|jamas)/i.test(lowerText)) {
+                detectedAction = getDecisionActionsForCharacter(charCtx.id)[0]; // Allow
+            } 
+            else if (/(vete|largo|fuera|no entras|adiós|marchate|dejame|no te creo|impostor)/i.test(lowerText)) {
+                detectedAction = getDecisionActionsForCharacter(charCtx.id)[1]; // Deny
+            }
+        }
+
+        // Si se detecta acción, ejecutar transición automática
+        if (detectedAction) {
+            document.getElementById('dialogue-text').innerHTML = `<span style="color: var(--primary-green);">[TÚ]:</span> ${userText}<br><br><span style="color: yellow;">[SISTEMA]: INTENCIÓN DETECTADA. EJECUTANDO...</span>`;
+            
+            setTimeout(() => {
+                resetChatUI();
+                if (detectedAction.specialHandler) {
+                    detectedAction.specialHandler();
+                } else {
+                    handleChoice(detectedAction);
+                }
+            }, 1500); 
+            return;
+        }
+
+        // --- 2. SI NO HAY ACCIÓN, LLAMADA A API NORMAL ---
+        if (state.aiHistory.length === 0) {
+            let systemPrompt = `Estás en una novela visual de terror Lovecraftiano. ${charCtx.context} Responde en español. `;
+            
+            // Unified formatting rules
+            systemPrompt += "REGLAS DE FORMATO OBLIGATORIAS: 1. Cuando hables, hazlo siempre en PRIMERA persona. 2. Describe tus acciones físicas o cambios en el entorno entre PARÉNTESIS (). Ejemplo: '(Me ajusto la corbata con nerviosismo) ¿Podemos pasar?'. ";
+            
+            if (charCtx.id === 'pale') {
+                systemPrompt += "El jugador debe decirte si está solo o acompañado para avanzar. Sé intimidante y cortés.";
+            }
+            
+            systemPrompt += " Sé atmosférico, breve (máximo 2 frases) y reactivo.";
+            state.aiHistory.push({ role: "system", content: systemPrompt });
+        }
+        state.aiHistory.push({ role: "user", content: userText });
+
+        try {
+            const response = await fetch(GROQ_API_URL, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${GROQ_API_KEY}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    messages: state.aiHistory,
+                    model: GROQ_MODEL,
+                    temperature: 0.7,
+                    max_tokens: 150
+                })
+            });
+
+            const data = await response.json();
+            const aiText = data.choices[0].message.content;
+
+            state.aiHistory.push({ role: "assistant", content: aiText });
+
+            // Actualizar interfaz del juego
+            document.getElementById('dialogue-text').innerHTML = `<span style="color: var(--primary-green);">[TÚ]:</span> ${userText}<br><br>${aiText}`;
+
+        } catch (error) {
+            console.error("Error Groq:", error);
+            document.getElementById('dialogue-text').innerText = "Error de conexión con la entidad neuronal...";
+        }
+
+        resetChatUI();
+    }
+
+    function resetChatUI() {
+        const inputField = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        inputField.disabled = false;
+        sendBtn.disabled = false;
+        sendBtn.innerText = "ENVIAR";
+        inputField.focus();
+    }
+
+    function goBackScene() {
+        if (state.sceneHistory.length > 0) {
+            const prev = state.sceneHistory.pop();
+            renderScene(prev, null, true); // true = isBacking
+        }
+    }
+
+    function showStandardChoices() {
+        const choicesContainer = document.getElementById('choices-container');
+        // --- SAFEGUARD: Ensure chat interface is preserved before clearing ---
+        let chatInterface = document.getElementById('chat-interface');
+        const assetsStorage = document.getElementById('assets-storage');
+        
+        if (!chatInterface) {
+            chatInterface = createChatInterface();
+            if (assetsStorage) assetsStorage.appendChild(chatInterface);
+        } else if (assetsStorage) {
+            assetsStorage.appendChild(chatInterface);
+            chatInterface.style.display = 'none';
+        }
+
+        choicesContainer.innerHTML = ''; 
+
+        // En modo IA, mostramos las decisiones FINALES del personaje
+        const charCtx = getCurrentCharacterContext();
+        let choicesToShow = [];
+
+        if (state.aiMode && charCtx) {
+            choicesToShow = getDecisionActionsForCharacter(charCtx.id);
+        } else {
+            // Check for transition scenes
+            if (state.aiMode && state.currentScene === 'pale_visitor_leave_threat') {
+                 choicesToShow = [{ text: "IR AL SALÓN", action: 'start_elimination', next: 'elimination_loop' }];
+            } else {
+                choicesToShow = state.tempSceneChoices; 
+            }
+        }
+
+        choicesToShow.forEach(choice => {
+            const btn = document.createElement('button');
+            btn.className = 'choice-btn';
+            btn.innerText = choice.text;
+            if (choice.specialHandler) btn.onclick = choice.specialHandler;
+            else btn.onclick = () => handleChoice(choice);
+            choicesContainer.appendChild(btn);
+        });
+
+        // Botón volver
+        if (state.sceneHistory.length > 0) {
+            const backBtn = document.createElement('button');
+            backBtn.className = 'back-btn';
+            backBtn.innerText = "VOLVER A LA ANTERIOR";
+            backBtn.onclick = goBackScene;
+            choicesContainer.appendChild(backBtn);
+        }
+    }
+
+
+    // --- ESCENAS (Iguales, pero el render maneja el modo IA) ---
+    const scenes = {
+        'intro_news': {
+            imageSrc: 'Reportera.jpg', 
+            alt: 'La imagen de la TV parpadea con distorsión cromática. La reportera parece sudar frío.',
+            speaker: 'Reportera (TV)',
+            text: '...repito, no es un simulacro. La contención del Sector 7 ha colapsado. Los reportes indican que los organismos miméticos no solo imitan la apariencia, sino que acceden a recuerdos recientes de la corteza prefrontal.',
+            choices: [{ text: 'Subir el volumen', next: 'intro_news_2' }]
+        },
+        'intro_news_2': {
+            imageSrc: 'Reportera.jpg',
+            alt: 'Primer plano extremo de los ojos de la reportera. Se nota una vena palpitando en su sien.',
+            speaker: 'Reportera (TV)',
+            text: 'Si alguien toca a su puerta, no asuma que es humano. Busque inconsistencias: higiene excesiva, tics nerviosos imposibles, olor a ozono o tierra húmeda. Y recuerde... el protocolo dicta: <span class="shaky-text">NUNCA ESTÉ SOLO</span>. Las entidades cazan el aislamiento.',
+            choices: [{ text: 'Apagar la televisión', next: 'intro_mc_problem' }]
+        },
+        'intro_mc_problem': {
+            imageSrc: 'Transicion.jpg',
+            alt: 'La habitación está en penumbra. El panel de seguridad emite un zumbido eléctrico molesto.',
+            speaker: 'Protagonista', 
+            text: 'Genial. Encima la puerta rota. Cualquiera podría empujar la puerta y entrar. Creo que acaba de llamar alguien',
+            choices: [{ text: 'Acercarse a la puerta', next: 'visit_1_aris_start' }]
+        },
+        
+        // --- VISITANTE 1: ARIS ---
+        'visit_1_aris_start': {
+            imageSrc: 'Aris.jpg',
+            alt: 'Una mujer de blanco inmaculado destaca contra la oscuridad del pasillo.',
+            speaker: '???',
+            text: 'Tres golpes. Secos. Matemáticamente espaciados. Al abrir la mirilla, veo una blancura que hiere los ojos. Es una mujer con bata médica. No tiene ni una sola gota de lluvia encima, a pesar del diluvio.',
+            choices: [
+                { text: '¿Quién es usted?', next: 'visit_1_aris_intro' },
+                { text: 'No abro a desconocidos.', next: 'visit_1_aris_refuse_attempt' }
+            ]
+        },
+        'visit_1_aris_intro': {
+            imageSrc: 'Aris.jpg',
+            alt: 'La mujer sonríe, pero sus ojos no se arrugan. Es una sonrisa de maniquí.',
+            speaker: 'Dra. Aris',
+            text: 'Saludos, ciudadano. Soy la Dra. Aris, Higienista de Grado 4. Mi escáner térmico indica que su temperatura corporal ha subido 0.4 grados en los últimos diez minutos. El estrés debilita el sistema inmune... y la barrera contra Ellos.',
+            choices: [
+                { text: '¿Por qué está tan limpia?', next: 'visit_1_aris_cleanliness' },
+                { text: 'Enséñeme su identificación.', next: 'visit_1_aris_id_check' }
+            ]
+        },
+        'visit_1_aris_cleanliness': {
+            imageSrc: 'Aris.jpg',
+            alt: 'Aris se mira la manga de la bata con una obsesión casi robótica.',
+            speaker: 'Dra. Aris',
+            text: 'La suciedad es el vehículo del contagio. He tenido que incinerar a tres pacientes en el camino hacia aquí. La ceniza... se pega si no tienes cuidado. Necesito entrar para recalibrar mis instrumentos. El aire aquí afuera es... espeso.',
+            choices: [
+                { text: '¿Incinerar?', next: 'visit_1_aris_story' },
+                { text: 'Déjeme ver su ID primero.', next: 'visit_1_aris_id_check' }
+            ]
+        },
+        'visit_1_aris_id_check': {
+            imageSrc: 'Aris.jpg',
+            alt: 'Sostiene una tarjeta plástica contra el cristal. Hay una mancha verdosa en la esquina.',
+            speaker: 'Protagonista',
+            text: 'La tarjeta parece oficial, FEMA estándar. Pero hay una mancha viscosa, casi luminiscente, cerca de su pulgar. Ella parece no notarlo, o quizás lo ignora a propósito.',
+            choices: [
+                { text: 'Tiene algo en la mano.', next: 'visit_1_aris_stain_reaction' },
+                { text: 'Parece legítimo.', next: 'visit_1_aris_decision' }
+            ]
+        },
+        'visit_1_aris_stain_reaction': {
+            imageSrc: 'Aris.jpg',
+            alt: 'Por un segundo, su rostro se contrae en una mueca inhumana antes de volver a la compostura.',
+            speaker: 'Dra. Aris',
+            text: '¡Es gel desinfectante! Oxidado por la radiación ambiental. ¿Va a cuestionar mi higiene mientras su propio felpudo es un cultivo de bacterias de nivel 5? Ábrame. Mi paciencia tiene un límite, y su seguridad también.',
+            choices: [{ text: 'Vale, vale...', next: 'visit_1_aris_decision' }]
+        },
+        'visit_1_aris_story': {
+            imageSrc: 'Aris.jpg',
+            alt: 'Aris baja la mirada. Su voz se vuelve monótona.',
+            speaker: 'Dra. Aris',
+            text: 'El Sector 7 no cayó por la fuerza bruta. Cayó porque alguien dejó entrar a un niño que lloraba. El niño... se deshizo en esporas dentro del refugio. Soy lo único estéril que queda. Si me deja fuera, me contaminaré.',
+            choices: [{ text: 'Entiendo.', next: 'visit_1_aris_decision' }]
+        },
+        'visit_1_aris_refuse_attempt': {
+            imageSrc: 'Aris.jpg',
+            alt: 'Aris pega su rostro al cristal. Sus pupilas se contraen y dilatan rítmicamente.',
+            speaker: 'Dra. Aris',
+            text: 'Su rechazo es ilógico. Las probabilidades de supervivencia en solitario son del 3.4%. Con personal médico, suben al 45%. No sea estadísticamente estúpido.',
+            choices: [{ text: 'He dicho que no.', next: 'visit_1_aris_refuse_final' }, { text: 'Quizás tenga razón.', next: 'visit_1_aris_intro' }]
+        },
+        'visit_1_aris_decision': {
+            imageSrc: 'Aris.jpg',
+            alt: 'Aris espera con las manos cruzadas perfectamente. Demasiado quieta.',
+            speaker: 'Protagonista',
+            text: 'Tengo que decidir. Su obsesión con la limpieza podría ser un rasgo de personalidad... o un fallo en la imitación de un comportamiento humano. Si la dejo fuera, morirá. Si entra y es una de Ellos...',
+            choices: [
+                { text: 'Abrir la puerta (Permitir acceso)', action: 'allow_aris', next: 'transition_to_leo' },
+                { text: 'Mantener la puerta cerrada (Rechazar)', action: 'deny_aris', next: 'transition_to_leo' }
+            ]
+        },
+        'visit_1_aris_refuse_final': {
+            imageSrc: 'Aris.jpg',
+            alt: 'Aris golpea el cristal una vez, con fuerza sobrehumana, y luego se da la vuelta rígidamente.',
+            speaker: 'Dra. Aris',
+            text: 'Queda registrado. Su defunción será clasificada como "Negligencia autoinducida". Adiós.',
+            choices: [{ text: 'Verla marcharse', action: 'deny_aris', next: 'transition_to_leo' }]
+        },
+
+        // --- TRANSICIÓN A LEO ---
+        'transition_to_leo': {
+            imageSrc: 'Transicion.jpg',
+            alt: 'El reloj marca las 02:00 AM. La sombra de las agujas parece alargarse antinaturalmente.',
+            speaker: 'Protagonista',
+            text: 'Pasa una hora. O quizás un minuto. El tiempo se siente viscoso aquí dentro. Justo cuando mi pulso empieza a bajar, algo golpea la puerta. No son golpes secos. Es algo frenético, desesperado. Como un animal atrapado.',
+            choices: [{ text: 'Mirar por la mirilla', next: 'visit_2_leo_start' }]
+        },
+
+        // --- VISITANTE 2: LEO ---
+        'visit_2_leo_start': {
+            imageSrc: 'Leo.jpg',
+            alt: 'Un chico joven, empapado, con gafas de sol rotas y una lata de bebida energética aplastada.',
+            speaker: 'Leo',
+            text: '¡Eh! ¡Tú! ¡Sé que estás ahí! ¡Veo la luz infrarroja de tu cámara! ¡Ábreme, joder, vienen los Hombres de Estática!',
+            choices: [
+                { text: '¡Cállate! ¿Quién eres?', next: 'visit_2_leo_intro' },
+                { text: 'Vete o disparo.', next: 'visit_2_leo_threat' }
+            ]
+        },
+        'visit_2_leo_intro': {
+            imageSrc: 'Leo.jpg',
+            alt: 'Leo mira hacia atrás, hacia la oscuridad de la calle, temblando violentamente.',
+            speaker: 'Leo',
+            text: 'Soy Leo. Repartidor. Hacker. Lo que sea. Escucha, vi cómo se llevaban al vecino del quinto. No se lo llevaron... ¡lo borraron! ¡Se convirtió en ruido blanco y puf! ¡Desapareció!',
+            choices: [
+                { text: '¿Y esa bebida?', next: 'visit_2_leo_glasses' },
+                { text: 'Estás drogado.', next: 'visit_2_leo_denial' }
+            ]
+        },
+        'visit_2_leo_glasses': {
+            imageSrc: 'Leo.jpg',
+            alt: 'Leo mira su bebida. Se ven sus ojos inyectados en sangre y pupilas enormes.',
+            speaker: 'Leo',
+            text: '¡Es para no verlos! Si bebes es como si no existiesen, evitando que te escaneen el alma y te hagan un duplicado.mp3 corrupto. Es pura lógica.',
+            choices: [
+                { text: 'Parece una teoría de conspiración.', next: 'visit_2_leo_theory' },
+                { text: 'Enséñame una prueba.', next: 'visit_2_leo_proof' }
+            ]
+        },
+        'visit_2_leo_theory': {
+            imageSrc: 'Leo.jpg',
+            alt: 'Saca un cuaderno lleno de garabatos espirales y fórmulas sin sentido.',
+            speaker: 'Leo',
+            text: '¿Conspiración? ¡Es la realidad, tío! Mira, he calculado los patrones de invasión. Tu casa es un nodo seguro. Las líneas ley de la ciudad cruzan justo debajo de tu sofá. ¡Por eso no te han comido aún!',
+            choices: [{ text: 'Dame una prueba real.', next: 'visit_2_leo_proof' }]
+        },
+        'visit_2_leo_proof': {
+            imageSrc: 'Leo.jpg',
+            alt: 'Leo muestra una cicatriz en su brazo. Parece un código de barras quemado.',
+            speaker: 'Leo',
+            text: 'Me intentaron marcar. Me escapé. No cicatriza. Arde cuando se acercan. Y ahora mismo... ¡me está quemando el brazo! ¡Están cerca! ¡Por favor, tengo cafeína y barritas energéticas!',
+            choices: [{ text: 'Está bien, cálmate.', next: 'visit_2_leo_decision' }]
+        },
+        'visit_2_leo_denial': {
+            imageSrc: 'Leo.jpg',
+            alt: 'Leo golpea el marco de la puerta con desesperación.',
+            speaker: 'Leo',
+            text: '¡No es droga, es adrenalina de supervivencia! ¡Si me dejas aquí fuera, seré estática en cinco minutos! ¿Quieres eso en tu conciencia? ¿Eh?',
+            choices: [{ text: 'No es mi problema.', next: 'visit_2_leo_refuse_final' }, { text: 'Vale, explícate.', next: 'visit_2_leo_intro' }]
+        },
+        'visit_2_leo_threat': {
+            imageSrc: 'Leo.jpg',
+            alt: 'Leo levanta las manos. Tiembla tanto que casi se le caen las gafas.',
+            speaker: 'Leo',
+            text: '¡No dispares! ¡El ruido los atrae! ¡Huelen las ondas sonoras de la pólvora! Joder, solo quiero un rincón oscuro donde no me miren.',
+            choices: [{ text: 'Hablame de esas "miradas".', next: 'visit_2_leo_glasses' }]
+        },
+        'visit_2_leo_decision': {
+            imageSrc: 'Leo.jpg',
+            alt: 'Leo mira hacia la oscuridad. Algo se mueve en las sombras detrás de él.',
+            speaker: 'Protagonista',
+            text: 'El chico es un manojo de nervios. Su historia es absurda, pero su terror es genuino. O es un actor digno de un Oscar, o realmente está huyendo de algo peor que la muerte. Esa cicatriz en su brazo... parecía pulsar.',
+            choices: [
+                { text: 'Dejarlo entrar (Permitir acceso)', action: 'allow_leo', next: 'transition_to_elena' },
+                { text: 'Decirle que se largue (Rechazar)', action: 'deny_leo', next: 'transition_to_elena' }
+            ]
+        },
+        'visit_2_leo_refuse_final': {
+            imageSrc: 'Leo.jpg',
+            alt: 'Leo grita en silencio mientras algo invisible parece tirar de su ropa hacia la oscuridad.',
+            speaker: 'Leo',
+            text: '¡NO! ¡ME HAN VISTO! ¡NO ME MIRES! ¡CIERRA LOS OJOS O TE LLEVARÁN A TI TAMB...',
+            choices: [{ text: 'Alejarse de la puerta', action: 'deny_leo', next: 'transition_to_elena' }]
+        },
+
+        // --- TRANSICIÓN A ELENA ---
+        'transition_to_elena': {
+            imageSrc: 'Transicion.jpg',
+            alt: 'La lluvia ha cambiado. Ahora es oscura, aceitosa, y golpea el cristal como dedos huesudos.',
+            speaker: 'Protagonista',
+            text: 'Intento sentarme, pero entonces llega un sonido suave. No son golpes. Es el roce de tela mojada contra la madera. Y un sollozo. Un llanto tan triste que hace que me duelan los dientes.',
+            choices: [{ text: 'Preguntar quién está ahí', next: 'visit_3_elena_start' }]
+        },
+
+        // --- VISITANTE 3: ELENA ---
+        'visit_3_elena_start': {
+            imageSrc: 'Elena.jpg',
+            alt: 'Una mujer vestida de luto riguroso. Un velo negro cubre su rostro. Está empapada.',
+            speaker: 'Elena',
+            text: '<span class="whisper-text">...perdón... perdón por molestar... hace tanto frío...</span> Su voz es como el crujido de hojas secas. No levanta la cabeza.',
+            choices: [
+                { text: '¿Qué quiere?', next: 'visit_3_elena_intro' },
+                { text: 'Márchese, por favor.', next: 'visit_3_elena_plea' }
+            ]
+        },
+        'visit_3_elena_intro': {
+            imageSrc: 'Elena.jpg',
+            alt: 'Elena lleva las manos a su velo, pero no se lo quita. Sus manos son pálidas, casi azules.',
+            speaker: 'Elena',
+            text: '<span class="whisper-text">Vengo del cementerio de San Lázaro. Fui a visitar a mi esposo... pero la tierra estaba revuelta. El agujero estaba vacío.</span>',
+            choices: [
+                { text: '¿Desenterraron a su marido?', next: 'visit_3_elena_story' },
+                { text: '¿Por qué huele a tierra mojada?', next: 'visit_3_elena_smell' }
+            ]
+        },
+        'visit_3_elena_smell': {
+            imageSrc: 'Elena.jpg',
+            alt: 'El agua que gotea de su vestido es oscura. Deja un charco negro en el porche.',
+            speaker: 'Elena',
+            text: '<span class="whisper-text">Es el barro... me caí. Corrí mucho. Él me seguía. Mi esposo. Pero no era él. Tenía demasiados... brazos.</span>',
+            choices: [
+                { text: 'Eso es horrible.', next: 'visit_3_elena_locket' },
+                { text: 'No le creo.', next: 'visit_3_elena_anger' }
+            ]
+        },
+        'visit_3_elena_story': {
+            imageSrc: 'Elena.jpg',
+            alt: 'Elena se estremece.',
+            speaker: 'Elena',
+            text: '<span class="whisper-text">No lo desenterraron. Salió él. O algo que usaba su piel. Me susurró cosas... cosas sobre el hambre eterna. Necesito esconderme. Él no puede entrar si no lo invitan.</span>',
+            choices: [{ text: '¿Y usted? ¿Puede entrar?', next: 'visit_3_elena_locket' }]
+        },
+        'visit_3_elena_locket': {
+            imageSrc: 'Elena.jpg',
+            alt: 'Saca un camafeo antiguo. Está oxidado y cerrado.',
+            speaker: 'Elena',
+            text: '<span class="whisper-text">Llevo esto. Su foto de antes. Para recordar que está muerto. Para no dejarme engañar. Por favor... solo necesito una silla. No haré ruido.</span>',
+            choices: [{ text: 'Déjeme ver su cara.', next: 'visit_3_elena_face_check' }]
+        },
+        'visit_3_elena_face_check': {
+            imageSrc: 'Elena.jpg',
+            alt: 'Levanta ligeramente el velo. Solo se ve una boca triste y piel muy pálida. No se ven los ojos.',
+            speaker: 'Elena',
+            text: '<span class="whisper-text">El luto es mi rostro ahora. ¿Es suficiente? ¿O quiere ver mis cicatrices también?</span>',
+            choices: [{ text: 'Es suficiente.', next: 'visit_3_elena_decision' }]
+        },
+        'visit_3_elena_anger': {
+            imageSrc: 'Elena.jpg',
+            alt: 'Elena se yergue de repente. Su postura cambia de sumisa a amenazante por un microsegundo.',
+            speaker: 'Elena',
+            text: '<span class="whisper-text">¿Duda de una viuda? La falta de piedad es lo que alimenta a las bestias. Tenga cuidado. Su corazón suena delicioso... digo, solitario.</span>',
+            choices: [{ text: '¿Qué ha dicho?', next: 'visit_3_elena_correction' }]
+        },
+        'visit_3_elena_correction': {
+            imageSrc: 'Elena.jpg',
+            alt: 'Vuelve a encogerse.',
+            speaker: 'Elena',
+            text: '<span class="whisper-text">Solitario. Dije solitario. El miedo me hace balbucear.</span>',
+            choices: [{ text: 'Ya veo...', next: 'visit_3_elena_decision' }]
+        },
+        'visit_3_elena_plea': {
+            imageSrc: 'Elena.jpg',
+            alt: 'Se arrodilla frente a la puerta.',
+            speaker: 'Elena',
+            text: '<span class="whisper-text">No me moveré. Si él viene... al menos moriré cerca de calor humano.</span>',
+            choices: [{ text: 'Levántese.', next: 'visit_3_elena_decision' }]
+        },
+        'visit_3_elena_decision': {
+            imageSrc: 'Elena.jpg',
+            alt: 'Elena espera. El charco negro bajo sus pies se expande lentamente.',
+            speaker: 'Protagonista',
+            text: 'Esa mujer destila tristeza, pero ese olor a tierra... es abrumador. Y ese desliz verbal sobre "delicioso". ¿Fue el miedo o el hambre? Si la dejo fuera, soy un monstruo. Si entra, quizás ella sea el monstruo.',
+            choices: [
+                { text: 'Dejarla entrar (Permitir acceso)', action: 'allow_elena', next: 'group_scene' },
+                { text: 'Decirle que se vaya (Rechazar)', action: 'deny_elena', next: 'group_scene' }
+            ]
+        },
+
+        // --- ESCENA GRUPAL ---
+        'group_scene': {
+            dynamic: true,
+            speaker: 'Protagonista',
+            text: 'He tomado mis decisiones. Ahora estamos todos los que somos. El salón parece más pequeño. Las sombras en las esquinas parecen observarnos. Silencio absoluto.',
+            choices: [{ text: 'Esperar a que amanezca...', next: 'pale_visitor_arrival' }]
+        },
+
+        // --- EL VISITANTE PÁLIDO ---
+        'pale_visitor_arrival': {
+            imageSrc: 'VisitantePalido.jpg',
+            alt: 'Una cara pálida, alargada y sin nariz sonríe con demasiados dientes.',
+            speaker: 'El Visitante Pálido',
+            text: '<span class="monster-text">"Toc, toc..." No uso puertas. Las puertas son para los que tienen forma definida. Buenas noches, pequeña caja de carne.</span>',
+            choices: [{ text: '¿Qué demonios eres?', next: 'pale_visitor_q1' }]
+        },
+        'pale_visitor_q1': {
+            imageSrc: 'VisitantePalido.jpg',
+            alt: 'La criatura ladea la cabeza. Sus articulaciones crujen audiblemente a través del vidrio.',
+            speaker: 'El Visitante Pálido',
+            text: '<span class="monster-text">Soy el Auditor. El Recolector de sobras. Vengo a verificar el cumplimiento del protocolo. Dime... ¿estás solo en esta deliciosa latita de conservas? Mi oído es fino, pero prefiero que me lo confieses.</span>',
+            dynamicOptions: 'pale_visitor_check'
+        },
+        
+        // --- RUTAS PALE VISITOR ---
+        'ending_death_lie': {
+            imageSrc: 'EntradaPalido.jpg',
+            alt: 'El cristal estalla. Brazos largos y pálidos te envuelven.',
+            speaker: 'El Visitante Pálido',
+            text: '<span class="monster-text">¡MENTIRA! ¡Jajaja! ¡Huelo tus feromonas de miedo! ¡Solo escucho tu corazon latiendo al unísono! Intentaste engañarme... y eso me abre el apetito. Entraré quieras o no.</span>',
+            choices: [{ text: 'Asumir tu destino', action: 'return_menu' }]
+        },
+        'pale_visitor_caught_lie_but_continue': {
+            imageSrc: 'VisitantePalido.jpg',
+            alt: 'El monstruo empaña el cristal con su aliento gélido y dibuja una carita triste.',
+            speaker: 'El Visitante Pálido',
+            text: '<span class="monster-text">Mientes... qué adorable instinto de protección. ¿Tienes mascotas dentro?. Me gusta. Normalmente castigo la mentira, pero hoy estoy... juguetón.</span>',
+            choices: [{ text: 'Escuchar...', next: 'pale_visitor_leave_threat' }]
+        },
+        'scene_empty_room_knock': {
+            imageSrc: 'Salon_empty.jpg',
+            alt: 'El salón está vacío. Solo polvo y silencio.',
+            speaker: 'Protagonista',
+            text: 'He eliminado a todos. O quizás nunca dejé entrar a nadie. El silencio es mi escudo. Pero entonces... esucho la puerta caer.',
+            choices: [{ text: 'Mirar', next: 'ending_death_alone' }]
+        },
+        'ending_death_alone': {
+            imageSrc: 'EntradaPalido.jpg',
+            alt: 'El Visitante entra. Llena la habitación con su presencia antinatural.',
+            speaker: 'El Visitante Pálido',
+            text: '<span class="monster-text">Ah... el sabor de la soledad absoluta. Es como vino añejo. Nadie escuchará tus gritos. Nadie recordará tu nombre. El protocolo decía "nunca solo". Debiste leer la letra pequeña.</span>',
+            choices: [{ text: 'Asumir tu destino', action: 'return_menu' }]
+        },
+        'pale_visitor_leave_threat': {
+            imageSrc: 'VisitantePalido.jpg',
+            alt: 'El monstruo se retira lentamente, dejando marcas de garras en el vidrio.',
+            speaker: 'El Visitante Pálido',
+            text: '<span class="monster-text">Estás acompañado... bien. Pero uno de tus invitados huele a... podrido. A "nosotros". Tienes un impostor. Si no lo sacas tú antes del amanecer, no seré yo quién responda a tus gritos de auxilio. Tic, tac.</span>',
+            choices: [{ text: 'Ir al salón', action: 'start_elimination', next: 'elimination_loop' }]
+        },
+
+        // --- FINALES ---
+        'ending_fema': {
+            imageSrc: 'Fema.jpg',
+            alt: 'Luces azules y rojas inundan la habitación. Hombres con trajes NBQ derriban la puerta.',
+            speaker: 'Agente FEMA',
+            text: '¡SECTOR ASEGURADO! ¡Identificamos patrones humanos estables! Ha sido una noche larga, ciudadano. Alguna de las entidades han sido repelida, pero no todas. Procedemos a una evacuación inmediata del sector.',
+            choices: [{ text: 'Sobreviví (Por ahora)', action: 'return_menu' }]
+        },
+        'ending_betrayal_aris': {
+            imageSrc: 'TraicionAris.jpg',
+            alt: 'Aris se quita la mascarilla. Su boca se abre demasiado, desencajando la mandíbula.',
+            speaker: 'Dra. Aris',
+            text: '¿Higiene? Oh, pobre iluso. Necesitaba estar limpia para no estropear el sabor. Mi "colega" está esperando fuera. Gracias por abrir el envoltorio de la comida.',
+            choices: [{ text: 'Todo se vuelve negro...', action: 'return_menu' }]
+        },
+        'ending_betrayal_elena': {
+            imageSrc: 'TraicionElena.jpg',
+            alt: 'Elena levanta el velo. No tiene cara, solo un agujero negro que succiona la luz.',
+            speaker: 'Elena',
+            text: '<span class="whisper-text">Mi marido tenía hambre... y yo también. Gracias por la invitación.</span>',
+            choices: [{ text: 'Todo se vuelve negro...', action: 'return_menu' }]
+        },
+        'ending_betrayal_both': {
+            imageSrc: 'TraicionElenaAris.jpg',
+            alt: 'Aris y Elena te rodean. Ambas sonríen con dientes idénticos.',
+            speaker: 'Aris y Elena',
+            text: '¡Qué festín! Tres bocas son mejor que dos. Ha sido tan fácil... los humanos siempre confían en las lágrimas y las batas blancas.',
+            choices: [{ text: 'Gritar...', action: 'return_menu' }]
+        }
+    };
+
+    function startGame() {
+        state.visitorsInside = [];
+        state.arisIsImpostor = Math.random() < 0.5;
+        state.leoIsImpostor = false;
+        state.elenaIsImpostor = true;
+        state.isGameOver = false;
+        // Reiniciar stats
+        state.stats = { lies: 0, accepted: 0, rejected: 0, eliminated: 0 };
+        console.log("Aris Impostora:", state.arisIsImpostor);
+        
+        document.getElementById('main-menu').style.display = 'none';
+        document.getElementById('game-stage').style.display = 'flex';
+        renderScene('intro_news');
+    }
+
+    function returnToMainMenu() {
+        document.getElementById('game-stage').style.display = 'none';
+        document.getElementById('main-menu').style.display = 'flex';
+        
+        // Limpieza básica de la UI por si se reabre
+        document.getElementById('dialogue-box').style.display = 'none';
+        document.getElementById('choices-container').innerHTML = '';
+        document.getElementById('scene-image').style.display = 'none';
+        document.getElementById('alt-text-display').style.display = 'none';
+    }
+
+    // --- HELPER PARA CREAR CHAT INTERFACE ---
+    function createChatInterface() {
+        const chatInterface = document.createElement('div');
+        chatInterface.id = 'chat-interface';
+        chatInterface.style.display = 'none';
+        chatInterface.style.flexDirection = 'column';
+        chatInterface.style.width = '100%';
+        chatInterface.style.gap = '10px';
+        chatInterface.innerHTML = `
+            <input type="text" id="user-input" class="chat-input" placeholder="Escribe tu respuesta..." autocomplete="off">
+            <button id="send-btn" class="chat-send-btn" onclick="handleAIChat()">ENVIAR MENSAJE</button>
+            <button id="show-choices-btn" class="decision-btn" onclick="showStandardChoices()">TOMAR DECISIÓN / ACCIÓN</button>
+        `;
+        return chatInterface;
+    }
+
+    function renderScene(sceneId, customSceneData = null, isBacking = false) {
+        // Historial básico para botón volver
+        if (!isBacking && state.currentScene && state.currentScene !== sceneId) {
+            state.sceneHistory.push(state.currentScene);
+        }
+
+        state.currentScene = sceneId;
+        // Resetear historial IA al cambiar de escena
+        state.aiHistory = []; 
+
+        const scene = customSceneData || scenes[sceneId];
+
+        // Detector de finales para guardar datos
+        if (sceneId.startsWith('ending_')) {
+            saveGameSession(sceneId);
+        }
+
+        if (scene.dynamic) {
+            handleDynamicScene(sceneId);
+            return;
+        }
+
+        const imgElement = document.getElementById('scene-image');
+        const altDisplay = document.getElementById('alt-text-display');
+        
+        imgElement.onload = function() { this.style.display = 'block'; altDisplay.style.display = 'none'; };
+        imgElement.onerror = function() { this.style.display = 'none'; altDisplay.style.display = 'block'; };
+        
+        altDisplay.innerHTML = `<p style="font-style: italic; color: #fca5a5;">${scene.alt}</p>`;
+        altDisplay.style.display = 'block';
+        imgElement.style.display = 'none';
+        imgElement.src = scene.imageSrc;
+        imgElement.alt = scene.alt;
+        
+        const dialogueBox = document.getElementById('dialogue-box');
+        const charName = document.getElementById('char-name');
+        const dialogueText = document.getElementById('dialogue-text');
+
+        if (scene.speaker || scene.text) {
+            dialogueBox.style.display = 'block';
+            charName.innerText = scene.speaker || '';
+            dialogueText.innerHTML = scene.text;
+        } else {
+            dialogueBox.style.display = 'none';
+        }
+
+        const choicesContainer = document.getElementById('choices-container');
+
+        // --- ROBUST SAFEGUARD CHAT INTERFACE ---
+        let chatInterface = document.getElementById('chat-interface');
+        const assetsStorage = document.getElementById('assets-storage');
+        
+        // 1. Si no existe, crearlo
+        if (!chatInterface) {
+            chatInterface = createChatInterface();
+            // Intentar guardarlo en storage si existe, sino al body (temporalmente)
+            if (assetsStorage) assetsStorage.appendChild(chatInterface);
+            else document.body.appendChild(chatInterface);
+        } 
+        // 2. Si existe, moverlo a seguridad
+        else if (assetsStorage) {
+            assetsStorage.appendChild(chatInterface);
+            chatInterface.style.display = 'none';
+        }
+
+        choicesContainer.innerHTML = ''; 
+
+        // Recuperar opciones originales
+        let currentChoices = scene.choices;
+        if (scene.dynamicOptions === 'pale_visitor_check') currentChoices = generatePaleVisitorChoices();
+
+        // MODO IA LOGIC
+        const chatContext = getCurrentCharacterContext();
+        
+        if (state.aiMode && chatContext && !sceneId.startsWith('ending_')) {
+            // Mostrar interfaz de chat
+            choicesContainer.appendChild(chatInterface);
+            chatInterface.style.display = 'flex';
+            
+            // Guardar opciones para mostrarlas luego
+            state.tempSceneChoices = currentChoices;
+
+        } else {
+            // Modo Normal o Escena sin personaje interactivo
+            // Modo Normal o Escena sin personaje interactivo
+            if (currentChoices) {
+                currentChoices.forEach(choice => {
+                    const btn = document.createElement('button');
+                    btn.className = 'choice-btn';
+                    btn.innerText = choice.text;
+                    if (choice.specialHandler) btn.onclick = choice.specialHandler;
+                    else btn.onclick = () => handleChoice(choice);
+                    choicesContainer.appendChild(btn);
+                });
+            }
+        }
+
+        // Botón volver
+        if (state.sceneHistory.length > 0 && !sceneId.startsWith('ending_')) {
+            const backBtn = document.createElement('button');
+            backBtn.className = 'back-btn';
+            backBtn.innerText = "VOLVER A LA ANTERIOR";
+            backBtn.onclick = goBackScene;
+            choicesContainer.appendChild(backBtn);
+        }
+    }
+
+    function handleChoice(choice) {
+        if (choice.action) {
+            executeAction(choice.action);
+        }
+
+        if (choice.action === 'return_menu' || choice.action === 'reset') return;
+
+        if (choice.next) {
+            renderScene(choice.next);
+        }
+    }
+
+    function executeAction(action) {
+        switch(action) {
+            case 'return_menu': returnToMainMenu(); break;
+            case 'reset': location.reload(); break; 
+            case 'allow_aris': 
+                state.visitorsInside.push({id: 'aris', name: 'Dra. Aris', isImpostor: state.arisIsImpostor}); 
+                state.stats.accepted++;
+                break;
+            case 'deny_aris':
+                state.stats.rejected++;
+                break;
+            case 'allow_leo': 
+                state.visitorsInside.push({id: 'leo', name: 'Leo', isImpostor: state.leoIsImpostor}); 
+                state.stats.accepted++;
+                break;
+            case 'deny_leo':
+                state.stats.rejected++;
+                break;
+            case 'allow_elena': 
+                state.visitorsInside.push({id: 'elena', name: 'Elena', isImpostor: state.elenaIsImpostor}); 
+                state.stats.accepted++;
+                break;
+            case 'deny_elena':
+                state.stats.rejected++;
+                break;
+            case 'start_elimination': startEliminationPhase(); break;
+        }
+    }
+
+    function handleDynamicScene(sceneId) {
+        if (sceneId === 'elimination_loop') { renderEliminationLoop(); return; }
+
+        if (sceneId === 'group_scene') {
+            const img = document.getElementById('scene-image');
+            const alt = document.getElementById('alt-text-display');
+            const txt = document.getElementById('dialogue-text');
+            const choicesDiv = document.getElementById('choices-container');
+
+            let names = state.visitorsInside.map(v => v.id).sort().join('_');
+            if (names === '') names = 'empty';
+
+            const imgSrcStr = `Salon_${names}.jpg`;
+            const altStr = `Viñeta del salón con: ${state.visitorsInside.map(v => v.name).join(', ') || 'Nadie'}.`;
+
+            img.onload = function() { this.style.display = 'block'; alt.style.display = 'none'; };
+            img.onerror = function() { this.style.display = 'none'; alt.style.display = 'block'; };
+            
+            alt.innerHTML = `<p style="font-style: italic; color: #fca5a5;">${altStr}</p>`;
+            alt.style.display = 'block';
+            img.style.display = 'none';
+            img.src = imgSrcStr;
+            
+            txt.innerHTML = state.visitorsInside.length > 0 ? "Hay una tensión palpable en el aire. Se miran de reojo. ¿Quién miente? ¿Quién es humano?. Suenan unos golpes en la puerta como si de un toro se tratara" : "El silencio es absoluto. Solo estás tú y tus decisiones. Suenan unos golpes en la puerta como si de un toro se tratara";
+            choicesDiv.innerHTML = '';
+            const btn = document.createElement('button');
+            btn.className = 'choice-btn';
+            btn.innerText = '¿Otro visitante más?';
+            btn.onclick = () => renderScene('pale_visitor_arrival');
+            choicesDiv.appendChild(btn);
+        }
+    }
+
+    function generatePaleVisitorChoices() {
+        return [
+            { text: '"Estoy solo en casa."', specialHandler: () => checkPaleVisitorOutcome(true) },
+            { text: '"Tengo compañía."', specialHandler: () => checkPaleVisitorOutcome(false) }
+        ];
+    }
+
+    function checkPaleVisitorOutcome(claimedAlone) {
+        const actuallyAlone = state.visitorsInside.length === 0;
+        
+        // Lógica de mentiras
+        if (claimedAlone && !actuallyAlone) state.stats.lies++;
+        if (!claimedAlone && actuallyAlone) state.stats.lies++;
+
+        if (actuallyAlone) {
+            if (claimedAlone) renderScene('ending_death_alone');
+            else renderScene('ending_death_lie');
+        } else {
+            if (claimedAlone) renderScene('pale_visitor_caught_lie_but_continue');
+            else renderScene('pale_visitor_leave_threat');
+        }
+    }
+
+    function startEliminationPhase() { }
+
+    function renderEliminationLoop() {
+        // En la fase de eliminación, siempre usamos el modo normal (botones)
+        
+        let names = state.visitorsInside.map(v => v.id).sort().join('_');
+        if (names === '') names = 'empty';
+
+        const sceneData = {
+            imageSrc: `Salon_${names}.jpg`,
+            alt: `Salón con: ${state.visitorsInside.map(v => v.name).join(', ')}.`,
+            speaker: 'Protagonista',
+            text: 'El Visitante Pálido nos ha dado un ultimátum. Hay un impostor entre nosotros. Si no lo saco yo, moriremos todos. Mi rifle pesa en mis manos. Tengo que elegir.',
+            choices: []
+        };
+
+        state.visitorsInside.forEach(survivor => {
+            sceneData.choices.push({
+                text: `Ejecutar a ${survivor.name}`,
+                specialHandler: () => triggerDeathSequence(survivor)
+            });
+        });
+
+        sceneData.choices.push({
+            text: 'No hacer nada (Arriesgarse a esperar)',
+            specialHandler: () => resolveFinalNight()
+        });
+        
+        // Render manual para evitar la lógica de chat de renderScene
+        renderSceneManualElimination(sceneData);
+    }
+
+    function renderSceneManualElimination(sceneData) {
+        const imgElement = document.getElementById('scene-image');
+        const altDisplay = document.getElementById('alt-text-display');
+        const choicesContainer = document.getElementById('choices-container');
+        const dialogueBox = document.getElementById('dialogue-box');
+        const charName = document.getElementById('char-name');
+        const dialogueText = document.getElementById('dialogue-text');
+
+        imgElement.src = sceneData.imageSrc;
+        altDisplay.innerText = sceneData.alt;
+        charName.innerText = sceneData.speaker;
+        dialogueText.innerHTML = sceneData.text;
+
+        // --- ROBUST SAFEGUARD CHAT INTERFACE ---
+        let chatInterface = document.getElementById('chat-interface');
+        const assetsStorage = document.getElementById('assets-storage');
+        
+        // 1. Si no existe, crearlo
+        if (!chatInterface) {
+            chatInterface = createChatInterface();
+            if (assetsStorage) assetsStorage.appendChild(chatInterface);
+            else document.body.appendChild(chatInterface);
+        } 
+        // 2. Si existe, moverlo a seguridad
+        else if (assetsStorage) {
+            assetsStorage.appendChild(chatInterface);
+            chatInterface.style.display = 'none';
+        }
+
+        choicesContainer.innerHTML = '';
+
+        sceneData.choices.forEach(choice => {
+            const btn = document.createElement('button');
+            btn.className = 'choice-btn';
+            btn.innerText = choice.text;
+            if (choice.specialHandler) btn.onclick = choice.specialHandler;
+            else btn.onclick = () => handleChoice(choice);
+            choicesContainer.appendChild(btn);
+        });
+    }
+
+    function triggerDeathSequence(victim) {
+        let deathText = "", altText = "";
+        if (victim.id === 'leo') {
+            deathText = "¡Espera, tío! ¡Mira mis ojos! ¡Tengo miedo de verdad! ¡No soy uno de ellos! ¡Por favor!";
+            altText = "Leo retrocede temblando, tirando sillas a su paso.";
+        } else if (victim.id === 'aris') {
+            deathText = "¡Esto es una violación del Juramento Hipocrático! ¡Soy esencial para su supervivencia! ¡Mi sangre es roja!";
+            altText = "Aris usa su maletín como escudo, perdiendo su compostura fría.";
+        } else if (victim.id === 'elena') {
+            deathText = "<span class='whisper-text'>¿Me vas a enviar con mi esposo? Quizás... sea lo mejor. Hazlo. No tengo miedo a la oscuridad.</span>";
+            altText = "Elena se queda quieta, cerrando los ojos bajo el velo.";
+        }
+        
+        const scenePart1 = {
+            imageSrc: `Final_${victim.id}.jpg`,
+            alt: altText, speaker: victim.name, text: deathText,
+            choices: [{ text: 'No hay elección...', specialHandler: () => executeDeathStep2(victim) }]
+        };
+        // Render normal para la secuencia de muerte
+        renderSceneManualElimination(scenePart1);
+    }
+
+    function executeDeathStep2(victim) {
+        let executionText = "", speakerName = "Protagonista", altText = "";
+        if (victim.id === 'leo') {
+            executionText = "<span class='shaky-text'>¡¿QUE HICE MAL?!... lo siento...</span>";
+            speakerName = "Leo"; altText = "Leo inclina la cabeza y mira al suelo.";
+        } else if (victim.id === 'aris') {
+            executionText = "Calculando probabilidad de error... 0%. Maldito seas.";
+            speakerName = "Dra. Aris"; altText = "Aris mira con odio puro.";
+        } else if (victim.id === 'elena') {
+            executionText = "<span class='whisper-text'>Silencio... al fin.</span>";
+            speakerName = "Elena"; altText = "Elena respira hondo.";
+        }
+
+        const scenePart2 = {
+            imageSrc: `Disparo_${victim.id}.jpg`,
+            alt: altText, speaker: speakerName, text: executionText,
+            choices: [{ text: 'Apretar el gatillo', specialHandler: () => finalizeDeath(victim) }]
+        };
+        renderSceneManualElimination(scenePart2);
+    }
+
+    function finalizeDeath(victim) {
+        // Incrementar eliminados
+        state.stats.eliminated++;
+        
+        const scenePart3 = {
+            imageSrc: `Disparo_${victim.id}.jpg`,
+            alt: `El cuerpo rígido de ${victim.name} asume su destino mientras le apunto.`,
+            speaker: 'Protagonista',
+            text: `El cuerpo rígido de ${victim.name} asume su destino mientras le apunto.`,
+            choices: [{
+                text: 'Volver al salón',
+                specialHandler: () => {
+                    state.visitorsInside = state.visitorsInside.filter(v => v.id !== victim.id);
+                    if (state.visitorsInside.length === 0) renderScene('scene_empty_room_knock');
+                    else renderEliminationLoop();
+                }
+            }]
+        };
+        renderSceneManualElimination(scenePart3);
+    }
+
+    function resolveFinalNight() {
+        const impostorsLeft = state.visitorsInside.filter(v => v.isImpostor);
+        const arisLeft = state.visitorsInside.find(v => v.id === 'aris');
+        const elenaLeft = state.visitorsInside.find(v => v.id === 'elena');
+
+        if (impostorsLeft.length > 0) {
+            if (impostorsLeft.length > 1) {
+                // Ambas son impostoras
+                if (Math.random() < 0.5) renderScene('ending_betrayal_aris');
+                else renderScene('ending_betrayal_elena');
+            } else {
+                // Solo una impostora
+                if (arisLeft && arisLeft.isImpostor) renderScene('ending_betrayal_aris');
+                else if (elenaLeft && elenaLeft.isImpostor) renderScene('ending_betrayal_elena');
+            }
+        } else {
+            renderScene('ending_fema');
+        }
+    }
+
+    scenes['elimination_loop'] = { dynamic: true }; 
+</script>
+</body>
+</html>
