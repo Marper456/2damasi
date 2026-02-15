@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Explorador Mítico</title>
+    
+    <!-- PWA / Mobile Settings -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#020205">
+    
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Manifest Embebido -->
+    <link rel="manifest" href='data:application/manifest+json,{
+        "name": "Finanzas Míticas",
+        "short_name": "Míticas",
+        "start_url": ".",
+        "display": "standalone",
+        "background_color": "#020205",
+        "theme_color": "#020205",
+        "icons": [{
+            "src": "https://cdn-icons-png.flaticon.com/512/3062/3062634.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }]
+    }'>
+
+    <!-- Fuentes Premium -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* Paleta: Azul Oscuro, Morado, Negro */
+            --primary-purple: #7c4dff;
+            --secondary-cyan: #00e5ff;
+            --bg-dark: #020205; 
+            --bg-overlay: rgba(5, 5, 16, 0.95);
+            --text-main: #ffffff;
+            --text-muted: #a0a0b0;
+            --success-green: #00ff9d;
+            --danger-red: #ff4d4d;
+            --warning-orange: #ffab40;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: 'Montserrat', sans-serif;
+            color: var(--text-main);
+            -webkit-font-smoothing: antialiased;
+            overscroll-behavior: none;
+        }
+
+        h1, .metric-val, .gauge-val, .modal-title, .auth-title {
+            font-family: 'Cinzel', serif;
+        }
+
+        /* --- AUTH OVERLAY --- */
+        #auth-overlay {
+            position: fixed; inset: 0;
+            background: #020205;
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            transition: opacity 0.5s ease, visibility 0.5s;
+        }
+        
+        #auth-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .auth-box {
+            background: rgba(10, 10, 25, 0.8);
+            border: 1px solid var(--primary-purple);
+            padding: 40px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(124, 77, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .auth-title { font-size: 2rem; margin-bottom: 10px; color: var(--secondary-cyan); }
+        .auth-subtitle { color: var(--text-muted); margin-bottom: 30px; font-size: 0.9rem; }
+        
+        .auth-input {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            border-radius: 6px;
+            font-family: 'Montserrat', sans-serif;
+            box-sizing: border-box;
+        }
+        .auth-input:focus { border-color: var(--secondary-cyan); outline: none; }
+
+        .btn-auth {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, var(--primary-purple), #5e35b1);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 1rem;
+        }
+        .btn-auth-secondary {
+            background: transparent;
+            border: 1px solid var(--text-muted);
+            margin-top: 10px;
+            color: var(--text-muted);
+        }
+
+        .auth-msg { margin-top: 15px; font-size: 0.8rem; min-height: 20px; }
+        .auth-msg.error { color: var(--danger-red); }
+        .auth-msg.success { color: var(--success-green); }
+
+        /* --- APP STYLES --- */
+        .main-stage {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-color: #000;
+            overflow: hidden;
+            display: flex;
+            align-items: center; 
+            justify-content: center;
+            opacity: 0; /* Oculto inicialmente hasta login */
+            transition: opacity 0.5s ease;
+        }
+        .main-stage.visible { opacity: 1; }
+
+        .main-stage::after {
+            content: "";
+            position: absolute; inset: 0; z-index: 12; pointer-events: none;
+            background: radial-gradient(circle at center, rgba(2, 2, 20, 0.1), rgba(2, 2, 5, 0.85));
+        }
+
+        #bg-video {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            object-fit: contain; opacity: 0; z-index: 5; pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+        #bg-video.active { opacity: 1; z-index: 15; pointer-events: auto; }
+
+        #map-layer {
+            position: absolute; inset: 0; z-index: 10; transition: opacity 0.5s ease;
+            width: 100%; height: 100%;
+        }
+
+        .map-container {
+            width: 100%; height: 100%; display: none; 
+            justify-content: center; align-items: center;
+        }
+        .responsive-map-img { width: 100%; height: 100%; display: block; object-fit: fill; }
+
+        #desktop-map-container { display: flex; }
+        #mobile-map-container { display: none; }
+        @media (orientation: portrait) {
+            #desktop-map-container { display: none; }
+            #mobile-map-container { display: flex; }
+        }
+
+        .layer-hidden { visibility: hidden !important; opacity: 0 !important; }
+
+        /* --- BOTÓN DE USUARIO & AVATAR --- */
+        #user-btn {
+            position: fixed; top: 20px; right: 20px; z-index: 100;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--primary-purple);
+            color: #fff;
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 15px rgba(124, 77, 255, 0.3);
+            transition: transform 0.2s;
+            overflow: hidden; /* Para recortar la imagen */
+        }
+        #user-btn:active { transform: scale(0.95); }
+        
+        #user-avatar-img {
+            width: 100%; height: 100%; object-fit: cover;
+        }
+
+        /* --- GRID & CARDS --- */
+        #data-overlay {
+            position: absolute; inset: 0;
+            background: rgba(2, 2, 8, 0.4); 
+            z-index: 20;
+            display: flex; justify-content: center; align-items: flex-start;
+            opacity: 0; pointer-events: none; transition: opacity 0.5s ease;
+            backdrop-filter: blur(8px); padding-top: 20px;
+        }
+        #data-overlay.active { opacity: 1; pointer-events: auto; }
+
+        .dashboard-grid {
+            display: grid; grid-template-columns: 1fr; gap: 15px; width: 90%;
+            padding-bottom: 40px; max-height: 90vh; overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        @media (min-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: repeat(3, 1fr); max-width: 1200px;
+                align-items: start; padding-top: 20px;
+            }
+        }
+
+        .fade-in-up { opacity: 0; transform: translateY(20px); animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+
+        .card {
+            background: rgba(5, 5, 15, 0.45); border: 1px solid rgba(124, 77, 255, 0.15);
+            padding: 15px; border-radius: 8px; position: relative; overflow: hidden;
+            display: flex; flex-direction: column; box-shadow: 0 4px 30px rgba(0,0,0,0.3);
+            backdrop-filter: blur(15px);
+        }
+        .card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 2px; height: 100%;
+            background: linear-gradient(to bottom, var(--primary-purple), var(--secondary-cyan)); opacity: 0.6;
+        }
+        .card-header { 
+            grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; 
+            border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 10px;
+            background: rgba(5, 5, 15, 0.6); position: sticky; top: 0; z-index: 10;
+        }
+
+        @media (min-width: 768px) {
+            .card-tall { grid-row: span 2; }
+            .card-wide { grid-column: span 2; }
+        }
+
+        .label { color: var(--secondary-cyan); font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase; font-weight: 600; margin-bottom: 10px; display: block; }
+        .input-group { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; align-items: center; }
+        .input-field, .select-field { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 12px; border-radius: 4px; font-family: inherit; font-size: 0.9rem; flex: 1; min-width: 120px; }
+        .select-field { cursor: pointer; padding-right: 30px; }
+        .btn-add { background: linear-gradient(135deg, var(--primary-purple), #5e35b1); color: white; border: none; padding: 12px 20px; border-radius: 4px; font-weight: 600; text-transform: uppercase; font-size: 0.8rem; flex-grow: 1; }
+        .btn-fund { background: transparent; border: 1px solid var(--success-green); color: var(--success-green); font-size: 0.7rem; padding: 6px 12px; border-radius: 4px; margin-right: 8px; }
+        .item-list { flex-grow: 1; overflow-y: auto; max-height: 200px; margin-top: 10px; padding-right: 5px; }
+        .list-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem; }
+        .row-del { color: var(--danger-red); font-size: 1.4rem; margin-left: 15px; padding: 0 10px; cursor: pointer; }
+        .row-action { color: var(--secondary-cyan); font-size: 1.2rem; margin-right: 10px; cursor: pointer; }
+        
+        .chart-container { position: relative; width: 100%; height: 160px; margin: 10px auto; display: flex; justify-content: center; align-items: flex-end; gap: 12px; }
+        .chart-donut { width: 150px; height: 150px; border-radius: 50%; position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.2); }
+        .chart-inner { position: absolute; inset: 20px; background: #0a0a14; border-radius: 50%; display: flex; justify-content: center; align-items: center; }
+        .bar-col { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+        .bar-visual { width: 100%; background: var(--secondary-cyan); border-radius: 4px 4px 0 0; min-height: 4px; opacity: 0.9; transition: height 0.6s; }
+        .bar-label { font-size: 0.65rem; color: var(--text-muted); margin-top: 5px; text-align: center; }
+        .legend-container { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; font-size: 0.75rem; margin-top: 15px; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .legend-color { width: 10px; height: 10px; border-radius: 50%; }
+        .metric-box { text-align: center; padding: 15px; background: rgba(255,255,255,0.02); margin-top: auto; border-radius: 4px; }
+        .metric-val { font-size: 2rem; font-weight: 700; }
+        .back-btn { background: rgba(0, 229, 255, 0.05); border: 1px solid var(--secondary-cyan); color: var(--secondary-cyan); padding: 8px 16px; font-size: 0.7rem; font-family: 'Cinzel', serif; font-weight: 700; }
+
+        #hover-info { position: fixed; top: 60px; right: 20px; left: 20px; background: rgba(5, 5, 16, 0.9); border: 1px solid var(--primary-purple); padding: 15px; opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 90; backdrop-filter: blur(10px); text-align: center; }
+        #hover-info.active { opacity: 1; }
+
+        /* --- MODAL GENÉRICO --- */
+        #custom-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 2000; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; backdrop-filter: blur(8px); }
+        #custom-modal.active { opacity: 1; pointer-events: auto; }
+        .modal-card { background: #0a0a16; border: 1px solid var(--primary-purple); padding: 25px; border-radius: 8px; width: 90%; max-width: 400px; text-align: center; transform: scale(0.9); transition: transform 0.3s; display: flex; flex-direction: column; max-height: 90vh; }
+        #custom-modal.active .modal-card { transform: scale(1); }
+        .modal-title { font-size: 1.2rem; color: #fff; margin-bottom: 15px; }
+        .modal-info { font-size: 0.9rem; color: #aaa; margin-bottom: 20px; line-height: 1.5; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 20px; flex-shrink: 0; }
+        .modal-scrollable { overflow-y: auto; flex-grow: 1; padding-right: 5px; }
+        .btn-modal { padding: 12px; flex: 1; border: 1px solid transparent; text-transform: uppercase; font-weight: bold; font-size: 0.8rem; border-radius: 4px; cursor: pointer; }
+        .btn-cancel { border-color: #666; color: #aaa; background: transparent; }
+        .btn-confirm { background: var(--success-green); color: #000; }
+        .btn-withdraw { border-color: var(--danger-red); color: var(--danger-red); background: transparent; }
+        
+        #file-input { display: none; }
+        #avatar-input-hidden { display: none; }
+        
+        .profile-img-preview {
+            width: 80px; height: 80px; border-radius: 50%; 
+            border: 2px solid var(--secondary-cyan); margin: 0 auto 15px auto;
+            object-fit: cover; background: #222;
+        }
+
+        .cloud-row {
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(255,255,255,0.05); padding: 10px; margin-bottom: 8px; border-radius: 4px;
+        }
+        .cloud-name { font-size: 0.9rem; font-weight: bold; text-align: left; }
+        .cloud-date { font-size: 0.7rem; color: #aaa; }
+        .cloud-actions { display: flex; gap: 10px; }
+
+        area { cursor: pointer; outline: none; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        ::-webkit-scrollbar-thumb { background: var(--primary-purple); border-radius: 2px; }
+    </style>
+</head>
+
+<body>
+
+<!-- PANTALLA DE AUTENTICACIÓN -->
+<div id="auth-overlay">
+    <div class="auth-box">
+        <h2 id="auth-title-text" class="auth-title">EXPLORADOR</h2>
+        <p id="auth-subtitle-text" class="auth-subtitle">ACCESO AL SISTEMA MÍTICO</p>
+        
+        <input type="email" id="auth-email" class="auth-input" placeholder="Correo Electrónico">
+        <input type="password" id="auth-pass" class="auth-input" placeholder="Contraseña">
+        
+        <button id="auth-btn-login" class="btn-auth" onclick="handleLogin()">Entrar</button>
+        <button id="auth-btn-register" class="btn-auth btn-auth-secondary" onclick="handleRegister()">Registrarse</button>
+        
+        <div id="auth-msg" class="auth-msg"></div>
+    </div>
+</div>
+
+<div class="main-stage" id="main-stage-container">
+    <!-- Botón Usuario -->
+    <div id="user-btn" onclick="openUserModal()">
+        <!-- Avatar se inyectará aquí -->
+        <svg id="default-user-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        <img id="user-avatar-img" src="" style="display:none;" alt="Avatar" onerror="this.style.display='none'; document.getElementById('default-user-icon').style.display='block';" />
+    </div>
+
+    <video id="bg-video" muted playsinline preload="auto">
+        <source src="" type="video/mp4">
+    </video>
+
+    <div id="data-overlay"></div>
+
+    <!-- Modal Único -->
+    <div id="custom-modal">
+        <div class="modal-card">
+            <div class="modal-title" id="modal-header"></div>
+            <div class="modal-info" id="modal-desc"></div>
+            
+            <div id="modal-body" class="modal-scrollable"></div>
+            
+            <div class="modal-actions" id="modal-btns"></div>
+        </div>
+    </div>
+
+    <div id="map-layer">
+        <!-- MAPA ESCRITORIO -->
+        <div id="desktop-map-container" class="map-container">
+            <img src="fondo.png" usemap="#desktop-map" class="responsive-map-img" alt="Fondo Escritorio">
+            <map name="desktop-map">
+                <area alt="UNICORN" onclick="startExperience('UNICORN')" coords="861,1235,712,1227,693,1099,625,1086,581,970,591,865,661,809,734,787,756,727,805,661,834,639,882,620,909,649,972,612" shape="poly">
+                <area alt="GRIFO" onclick="startExperience('GRIFO')" coords="15,1300,5,250,109,374,173,433,233,486,280,523,316,498,323,447,355,433,389,386,433,481,501,520,552,530,593,564,627,608,625,656,564,663,574,715,583,736,593,787,581,851,557,907,542,965,532,999,528,1052,564,1084,579,1135,540,1315" shape="poly">
+                <area alt="DRAGON" onclick="startExperience('DRAGON')" coords="2149,1235,2137,1157,2161,1094,2190,1038,2205,1060,2251,1074,2307,1040,2285,1018,2237,1016,2193,992,2154,945,2113,894,2113,853,2142,800,2176,831,2137,746,2117,676,2088,622,2049,603,2003,593,1904,612,1852,651,1816,690,1838,756,1874,890,1911,982,1889,1038,1857,1060,1843,1133,1838,1196,1884,1252" shape="poly">
+                <area alt="MANTICORA" onclick="startExperience('MANTICORA')" coords="2740,1274,2735,1133,2740,948,2737,841,2737,629,2735,474,2611,445,2480,476,2429,506,2293,527,2222,603,2139,695,2188,814,2290,931,2310,1013,2293,1089,2227,1086,2190,1140,2183,1244" shape="poly">
+                <area alt="TEMPLE" onclick="startExperience('TEMPLE')" coords="1036,532,1721,1047" shape="rect">
+            </map>
+        </div>
+
+        <!-- MAPA MÓVIL -->
+        <div id="mobile-map-container" class="map-container">
+            <img src="fondo2.png" usemap="#mobile-map" class="responsive-map-img" alt="Fondo Móvil">
+            <map name="mobile-map">
+                <area alt="UNICORN" onclick="startExperience('UNICORN')" coords="260,1780,307,1776,330,1755,363,1690,417,1659,436,1668,477,1637,438,1686,450,1709,450,1736,448,1755,415,1728,405,1766,409,1797,416,1805,413,1833,423,1849,435,1853,432,1896,424,1928,408,1933,396,1972,348,1981,292,1972,261,1960,219,1953,214,1888,223,1850" shape="poly">
+                <area alt="GRIFO" onclick="startExperience('GRIFO')" coords="40,1527,92,1490,109,1539,136,1615,158,1592,206,1596,250,1632,272,1666,254,1689,210,1687,219,1719,242,1759,237,1802,219,1847,208,1912,215,1960,219,1976,178,1987,140,1985,59,1972,24,1984,3,1988,2,1559" shape="poly">
+                <area alt="DRAGON" onclick="startExperience('DRAGON')" coords="1174,1971,1104,1956,1124,1889,1124,1821,1121,1761,1078,1712,1073,1690,1113,1638,1142,1614,1181,1614,1192,1673,1215,1701,1234,1714,1254,1676,1220,1631,1206,1621,1275,1643,1239,1749,1253,1787,1267,1796,1272,1836,1291,1866,1328,1898,1362,1932,1349,1954" shape="poly">
+                <area alt="MANTICORA" onclick="startExperience('MANTICORA')" coords="1522,1996,1410,2003,1328,2006,1303,1981,1374,1964,1359,1923,1348,1851,1321,1828,1269,1767,1246,1729,1272,1688,1302,1657,1343,1650,1402,1706,1402,1657,1348,1597,1402,1593,1474,1586,1523,1561" shape="poly">
+                <area alt="TEMPLE" onclick="startExperience('TEMPLE')" coords="527,1547,1037,1958" shape="rect">
+            </map>
+        </div>
+    </div>
+</div>
+
+<div id="hover-info">
+    <div style="font-family: 'Cinzel', serif; font-weight: 700; margin-bottom: 5px; font-size: 1rem; color: #fff;" id="hv-name">--</div>
+    <div style="font-size: 0.8rem; color: var(--text-muted);">Toca para abrir</div>
+</div>
+
+<input type="file" id="file-input" accept=".json" onchange="importData(event)">
+<!-- Input oculto para subir avatar -->
+<input type="file" id="avatar-input-hidden" accept="image/*" onchange="uploadAvatar(event)">
+
+<script>
+    // --- SUPABASE CONFIG ---
+    const supabaseUrl = 'https://mihbkbfugwvyjhrunlvc.supabase.co';
+    const supabaseKey = 'sb_publishable_AokRMYIwOXON9YVggXfhag_ZnAMvfYD'; // Key provista
+    const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+    // --- ESTADO Y TRADUCCIONES ---
+    let currentUser = null;
+    let currentLang = localStorage.getItem('app_lang') || 'es'; 
+    let currentDataSetId = null; // ID del conjunto de datos cargado actualmente
+
+    let userState = {
+        'TEMPLE': [], 'GRIFO': [], 'DRAGON': [],
+        'UNICORN': { goals: [], insurance: [] },
+        'MANTICORA': []
+    };
+
+    const translations = {
+        'es': {
+            'TEMPLE': { title: 'FLUJO', subtitle: 'Balance', labels: { new: 'NUEVO', history: 'HISTORIAL' }, placeholders: { desc: 'Concepto', cat: 'Categoría' }, options: { inc: 'Ingreso', exp: 'Gasto' }, btns: { save: 'Guardar' } },
+            'GRIFO': { title: 'ACTIVOS', subtitle: 'Inventario', labels: { active: 'ACTIVO', inv: 'INVENTARIO', div: 'DIVERS.' }, placeholders: { name: 'Nombre', cat: 'Categoría', val: 'Valor' }, btns: { add: 'Añadir' } },
+            'DRAGON': { title: 'BOLSA', subtitle: 'Inversiones', labels: { pos: 'POSICIÓN', port: 'PORTFOLIO', sec: 'SECTORES' }, placeholders: { tick: 'Ticker', sec: 'Sector', price: 'Inversión' }, btns: { add: 'Añadir' } },
+            'UNICORN': { title: 'FONDOS', subtitle: 'Ahorro', labels: { new: 'NUEVA META', ins: 'SEGUROS' }, placeholders: { title: 'Título', goal: 'Meta', cost: 'Coste', insName: 'Seguro' }, btns: { create: 'Crear Meta', add: 'Añadir', manage: 'Gestionar' } },
+            'MANTICORA': { title: 'DEUDAS', subtitle: 'Pasivos', labels: { new: 'NUEVO PASIVO', list: 'LISTA', total: 'DEUDA TOTAL', subs: 'SUSCRIPCIONES' }, placeholders: { name: 'Nombre', cat: 'Categoría', val: 'Valor' }, options: { sub: 'Suscripción', debt: 'Deuda' }, btns: { reg: 'Registrar' } },
+            
+            'COMMON': {
+                hover: 'Toca para abrir',
+                est: '(Est. €)',
+                loading: 'Cargando...',
+                uploading: 'Subiendo...',
+                changePhoto: 'Cambiar Foto',
+                profileTitle: 'PERFIL DE USUARIO',
+                langLabel: 'IDIOMA / LANGUAGE',
+                dataLabel: 'DATOS LOCALES',
+                cloudLabel: 'NUBE / CLOUD SAVES',
+                import: 'Importar JSON',
+                export: 'Exportar JSON',
+                close: 'Cerrar',
+                logout: 'Cerrar Sesión',
+                cancel: 'Cancelar',
+                withdraw: 'Retirar',
+                fund: 'Fondear',
+                accept: 'ACEPTAR',
+                saveCloud: 'Guardar Nuevo',
+                overwrite: 'Sobreescribir',
+                load: 'Cargar',
+                delete: 'Eliminar',
+                update: 'Actualizar',
+                newSavePlaceholder: 'Nombre del guardado'
+            },
+            'ALERTS': {
+                amountInvalid: 'Cantidad inválida',
+                noLiquidity: 'Sin liquidez suficiente',
+                goalExceeded: 'Excede la meta',
+                withdrawLimit: 'No puedes retirar más de lo ahorrado',
+                importSuccess: 'Datos importados correctamente.',
+                formatError: 'Formato de archivo inválido.',
+                readError: 'Error al leer el archivo JSON.',
+                uploadError: 'Error subiendo imagen: ',
+                saveProfileError: 'Error guardando perfil: ',
+                langUpdated: 'Idioma actualizado a: ',
+                funding: 'Fondeo',
+                withdrawal: 'Retiro',
+                cloudSaved: 'Datos guardados en la nube exitosamente.',
+                cloudLoaded: 'Datos cargados desde la nube.',
+                cloudDeleted: 'Guardado eliminado.',
+                cloudUpdated: 'Guardado actualizado exitosamente.'
+            },
+            'AUTH': {
+                title: 'EXPLORADOR',
+                subtitle: 'ACCESO AL SISTEMA MÍTICO',
+                email: 'Correo Electrónico',
+                pass: 'Contraseña',
+                login: 'Entrar',
+                register: 'Registrarse',
+                authenticating: 'Autenticando...',
+                registering: 'Registrando...',
+                regSuccess: 'Registro exitoso! Revisa tu email o inicia sesión.',
+                passLen: 'La contraseña debe tener 6 caracteres.'
+            }
+        },
+        'en': {
+            'TEMPLE': { title: 'FLOW', subtitle: 'Balance', labels: { new: 'NEW', history: 'HISTORIAL' }, placeholders: { desc: 'Concept', cat: 'Category' }, options: { inc: 'Income', exp: 'Expense' }, btns: { save: 'Save' } },
+            'GRIFO': { title: 'ASSETS', subtitle: 'Inventory', labels: { active: 'ASSET', inv: 'INVENTORY', div: 'DIVERS.' }, placeholders: { name: 'Name', cat: 'Category', val: 'Value' }, btns: { add: 'Add' } },
+            'DRAGON': { title: 'MARKET', subtitle: 'Investments', labels: { pos: 'POSITION', port: 'PORTFOLIO', sec: 'SECTORS' }, placeholders: { tick: 'Ticker', sec: 'Sector', price: 'Investment' }, btns: { add: 'Add' } },
+            'UNICORN': { title: 'FUNDS', subtitle: 'Savings', labels: { new: 'NEW GOAL', ins: 'INSURANCE' }, placeholders: { title: 'Title', goal: 'Goal', cost: 'Cost', insName: 'Insurance' }, btns: { create: 'Create Goal', add: 'Add', manage: 'Manage' } },
+            'MANTICORA': { title: 'DEBTS', subtitle: 'Liabilities', labels: { new: 'NEW LIABILITY', list: 'LIST', total: 'TOTAL DEBT', subs: 'SUBSCRIPTIONS' }, placeholders: { name: 'Name', cat: 'Category', val: 'Value' }, options: { sub: 'Subscription', debt: 'Debt' }, btns: { reg: 'Register' } },
+
+            'COMMON': {
+                hover: 'Tap to open',
+                est: '(Est. €)',
+                loading: 'Loading...',
+                uploading: 'Uploading...',
+                changePhoto: 'Change Photo',
+                profileTitle: 'USER PROFILE',
+                langLabel: 'LANGUAGE',
+                dataLabel: 'LOCAL DATA',
+                cloudLabel: 'CLOUD SAVES',
+                import: 'Import JSON',
+                export: 'Export JSON',
+                close: 'Close',
+                logout: 'Log Out',
+                cancel: 'Cancel',
+                withdraw: 'Withdraw',
+                fund: 'Fund',
+                accept: 'ACCEPT',
+                saveCloud: 'Save New',
+                overwrite: 'Overwrite',
+                load: 'Load',
+                delete: 'Delete',
+                update: 'Update',
+                newSavePlaceholder: 'Save name'
+            },
+            'ALERTS': {
+                amountInvalid: 'Invalid amount',
+                noLiquidity: 'Insufficient liquidity',
+                goalExceeded: 'Goal exceeded',
+                withdrawLimit: 'Cannot withdraw more than saved',
+                importSuccess: 'Data imported successfully.',
+                formatError: 'Invalid file format.',
+                readError: 'Error reading JSON file.',
+                uploadError: 'Error uploading image: ',
+                saveProfileError: 'Error saving profile: ',
+                langUpdated: 'Language updated to: ',
+                funding: 'Funding',
+                withdrawal: 'Withdrawal',
+                cloudSaved: 'Data saved to cloud successfully.',
+                cloudLoaded: 'Data loaded from cloud.',
+                cloudDeleted: 'Save deleted.',
+                cloudUpdated: 'Save updated successfully.'
+            },
+            'AUTH': {
+                title: 'EXPLORER',
+                subtitle: 'MYTHIC SYSTEM ACCESS',
+                email: 'Email Address',
+                pass: 'Password',
+                login: 'Login',
+                register: 'Register',
+                authenticating: 'Authenticating...',
+                registering: 'Registering...',
+                regSuccess: 'Registration successful! Check email or login.',
+                passLen: 'Password must be 6 chars.'
+            }
+        }
+    };
+
+    const uiConfig = {
+        'TEMPLE': { video: 'temple.mp4' },
+        'GRIFO': { video: 'griffin.mp4' },
+        'DRAGON': { video: 'dragon.mp4' },
+        'UNICORN': { video: 'unicorn.mp4' },
+        'MANTICORA': { video: 'manticorePrueba.mp4' }
+    };
+
+    const currencyOptions = `<option value="EUR">€</option><option value="USD">$</option><option value="GBP">£</option><option value="BTC">₿</option>`;
+    const mockRates = { 'EUR': 1, 'USD': 0.92, 'GBP': 1.17, 'BTC': 40000 };
+    
+    // --- AUTH LOGIC ---
+    async function initAuth() {
+        updateAuthLanguage();
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) {
+            handleSessionSuccess(session);
+        } else {
+            document.getElementById('auth-overlay').classList.remove('hidden');
+        }
+
+        supabaseClient.auth.onAuthStateChange((_event, session) => {
+            if (session) handleSessionSuccess(session);
+            else showLoginScreen();
+        });
+    }
+
+    function updateAuthLanguage() {
+        const t = translations[currentLang].AUTH;
+        document.getElementById('auth-title-text').innerText = t.title;
+        document.getElementById('auth-subtitle-text').innerText = t.subtitle;
+        document.getElementById('auth-email').placeholder = t.email;
+        document.getElementById('auth-pass').placeholder = t.pass;
+        document.getElementById('auth-btn-login').innerText = t.login;
+        document.getElementById('auth-btn-register').innerText = t.register;
+    }
+
+    function showLoginScreen() {
+        document.getElementById('auth-overlay').classList.remove('hidden');
+        document.getElementById('main-stage-container').classList.remove('visible');
+    }
+
+    function handleSessionSuccess(session) {
+        currentUser = session.user;
+        document.getElementById('auth-overlay').classList.add('hidden');
+        document.getElementById('main-stage-container').classList.add('visible');
+        loadUserProfile();
+    }
+
+    async function handleLogin() {
+        const t = translations[currentLang].AUTH;
+        const email = document.getElementById('auth-email').value;
+        const pass = document.getElementById('auth-pass').value;
+        const msg = document.getElementById('auth-msg');
+        
+        msg.className = 'auth-msg'; msg.innerText = t.authenticating;
+
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
+        if (error) {
+            msg.className = 'auth-msg error'; msg.innerText = error.message;
+        } else {
+            msg.innerText = ''; 
+        }
+    }
+
+    async function handleRegister() {
+        const t = translations[currentLang].AUTH;
+        const email = document.getElementById('auth-email').value;
+        const pass = document.getElementById('auth-pass').value;
+        const msg = document.getElementById('auth-msg');
+
+        if(pass.length < 6) {
+            msg.className = 'auth-msg error'; msg.innerText = t.passLen;
+            return;
+        }
+
+        msg.className = 'auth-msg'; msg.innerText = t.registering;
+        const { error } = await supabaseClient.auth.signUp({ email, password: pass });
+        
+        if (error) {
+            msg.className = 'auth-msg error'; msg.innerText = error.message;
+        } else {
+            msg.className = 'auth-msg success'; 
+            msg.innerText = t.regSuccess;
+            await createInitialProfile();
+        }
+    }
+
+    async function createInitialProfile() {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if(user) {
+            await supabaseClient.from('profiles').insert([{ id: user.id, language: currentLang }]);
+        }
+    }
+
+    async function handleLogout() {
+        await supabaseClient.auth.signOut();
+        currentUser = null;
+        currentDataSetId = null;
+        closeModal();
+    }
+
+    // --- PROFILE LOGIC ---
+    async function loadUserProfile() {
+        if(!currentUser) return;
+        
+        let { data, error } = await supabaseClient
+            .from('profiles')
+            .select('avatar_url, language')
+            .eq('id', currentUser.id)
+            .single();
+
+        if(!data) {
+            await supabaseClient.from('profiles').insert([{ id: currentUser.id, language: currentLang }]);
+            data = { avatar_url: null, language: currentLang };
+        }
+
+        if (data.avatar_url) {
+            const avatarImg = document.getElementById('user-avatar-img');
+            // Cache busting
+            avatarImg.src = data.avatar_url + '?t=' + new Date().getTime();
+            avatarImg.style.display = 'block';
+            document.getElementById('default-user-icon').style.display = 'none';
+        }
+        
+        if (data.language) {
+            currentLang = data.language;
+            localStorage.setItem('app_lang', currentLang);
+            if(currentSection) renderOverlay(currentSection, true);
+        }
+    }
+
+    async function updateLanguage(newLang) {
+        currentLang = newLang;
+        localStorage.setItem('app_lang', newLang); 
+        await supabaseClient.from('profiles').update({ language: newLang }).eq('id', currentUser.id);
+        if(currentSection) renderOverlay(currentSection, true);
+        updateAuthLanguage();
+        openUserModal(); // Re-render modal to show new lang
+        
+        const t = translations[currentLang].ALERTS;
+        // Small delay to allow modal re-render then show alert
+        setTimeout(() => showCustomAlert(translations[currentLang].COMMON.langLabel, t.langUpdated + newLang.toUpperCase()), 100);
+    }
+
+    function triggerAvatarUpload() {
+        document.getElementById('avatar-input-hidden').click();
+    }
+
+    async function uploadAvatar(event) {
+        const file = event.target.files[0];
+        if (!file || !currentUser) return;
+        
+        const t = translations[currentLang].COMMON;
+        const tAlert = translations[currentLang].ALERTS;
+
+        const uploadBtn = document.getElementById('btn-upload-avatar');
+        if(uploadBtn) uploadBtn.innerText = t.uploading;
+
+        // Limpiar nombre de archivo y extensión
+        const fileExt = file.name.split('.').pop().toLowerCase();
+        const fileName = `${currentUser.id}_avatar.${fileExt}`; 
+        
+        // Intentar subir con upsert
+        const { data, error: uploadError } = await supabaseClient.storage
+            .from('fotos')
+            .upload(fileName, file, { upsert: true });
+
+        if (uploadError) {
+            console.error("Upload Error:", uploadError);
+            showCustomAlert('Error Upload', tAlert.uploadError + uploadError.message);
+            if(uploadBtn) uploadBtn.innerText = t.changePhoto;
+            return;
+        }
+
+        const { data: { publicUrl } } = supabaseClient.storage.from('fotos').getPublicUrl(fileName);
+
+        // USAR UPSERT PARA ASEGURAR QUE SE GUARDE EN PERFILES
+        const { error: profileError } = await supabaseClient
+            .from('profiles')
+            .upsert({ id: currentUser.id, avatar_url: publicUrl }, { onConflict: 'id' });
+
+        if(profileError) {
+             console.error("Error updating profile:", profileError);
+             showCustomAlert('Error Profile', tAlert.saveProfileError + profileError.message);
+             if(uploadBtn) uploadBtn.innerText = t.changePhoto;
+             return;
+        }
+
+        // Force refresh via cache busting
+        const timestampedUrl = publicUrl + '?t=' + new Date().getTime();
+        document.getElementById('user-avatar-img').src = timestampedUrl;
+        document.getElementById('user-avatar-img').style.display = 'block';
+        document.getElementById('default-user-icon').style.display = 'none';
+        
+        const preview = document.getElementById('modal-avatar-preview');
+        if(preview) preview.src = timestampedUrl;
+        if(uploadBtn) uploadBtn.innerText = t.changePhoto;
+    }
+
+    // --- CLOUD DATA SET LOGIC ---
+    async function fetchCloudSaves() {
+        const { data, error } = await supabaseClient
+            .from('data_sets')
+            .select('id, name, created_at')
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false });
+        return data || [];
+    }
+
+    async function saveDataSet() {
+        const nameInput = document.getElementById('new-save-name');
+        const name = nameInput.value;
+        if (!name) return;
+
+        const { error } = await supabaseClient
+            .from('data_sets')
+            .insert([{ user_id: currentUser.id, name: name, data: userState }]);
+
+        if (error) showCustomAlert('Error', error.message);
+        else {
+            showCustomAlert('Nube', translations[currentLang].ALERTS.cloudSaved);
+            openUserModal(); // Refresh list
+        }
+    }
+
+    async function loadDataSet(id) {
+        const { data, error } = await supabaseClient
+            .from('data_sets')
+            .select('data')
+            .eq('id', id)
+            .single();
+
+        if (error) {
+            showCustomAlert('Error', error.message);
+        } else {
+            userState = data.data;
+            currentDataSetId = id;
+            showCustomAlert('Nube', translations[currentLang].ALERTS.cloudLoaded);
+            if(currentSection) renderOverlay(currentSection, true);
+            openUserModal(); // Update UI to show loaded status
+        }
+    }
+
+    async function deleteDataSet(id) {
+        const { error } = await supabaseClient
+            .from('data_sets')
+            .delete()
+            .eq('id', id);
+
+        if (error) showCustomAlert('Error', error.message);
+        else {
+            if(currentDataSetId === id) currentDataSetId = null;
+            showCustomAlert('Nube', translations[currentLang].ALERTS.cloudDeleted);
+            openUserModal();
+        }
+    }
+
+    async function updateCloudData(id) {
+        const { error } = await supabaseClient
+            .from('data_sets')
+            .update({ data: userState, updated_at: new Date() })
+            .eq('id', id);
+
+        if (error) showCustomAlert('Error', error.message);
+        else showCustomAlert('Nube', translations[currentLang].ALERTS.cloudUpdated);
+    }
+
+    // --- MODAL USUARIO ---
+    async function openUserModal() {
+        if(!currentUser) return;
+
+        const t = translations[currentLang].COMMON;
+        const header = document.getElementById('modal-header');
+        const desc = document.getElementById('modal-desc');
+        const body = document.getElementById('modal-body');
+        const btns = document.getElementById('modal-btns');
+
+        header.innerText = t.profileTitle;
+        desc.innerText = currentUser.email;
+        
+        const currentAvatar = document.getElementById('user-avatar-img').src || '';
+        const hasAvatar = document.getElementById('user-avatar-img').style.display !== 'none';
+
+        // Obtener saves
+        const cloudSaves = await fetchCloudSaves();
+        
+        let savesHtml = '';
+        cloudSaves.forEach(save => {
+            const isLoaded = currentDataSetId === save.id;
+            const date = new Date(save.created_at).toLocaleDateString();
+            
+            let actionBtns = `
+                <span class="row-action" style="color:var(--success-green)" onclick="loadDataSet('${save.id}')" title="${t.load}">&#8618;</span>
+                <span class="row-action" style="color:var(--danger-red)" onclick="deleteDataSet('${save.id}')" title="${t.delete}">&times;</span>
+            `;
+            
+            // Si está cargado, mostrar opción de actualizar
+            if(isLoaded) {
+                actionBtns = `
+                    <span class="row-action" style="color:var(--warning-orange)" onclick="updateCloudData('${save.id}')" title="${t.update}">&#8635;</span>
+                    <span class="row-action" style="color:var(--danger-red)" onclick="deleteDataSet('${save.id}')" title="${t.delete}">&times;</span>
+                `;
+            }
+
+            savesHtml += `
+                <div class="cloud-row" style="${isLoaded ? 'border:1px solid var(--secondary-cyan);' : ''}">
+                    <div style="flex-grow:1;">
+                        <div class="cloud-name">${save.name} ${isLoaded ? '(Active)' : ''}</div>
+                        <div class="cloud-date">${date}</div>
+                    </div>
+                    <div class="cloud-actions">
+                        ${actionBtns}
+                    </div>
+                </div>
+            `;
+        });
+
+        body.innerHTML = `
+            <div style="text-align:center;">
+                <img id="modal-avatar-preview" class="profile-img-preview" src="${hasAvatar ? currentAvatar : 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}">
+                <button id="btn-upload-avatar" class="btn-modal" style="border:1px solid var(--secondary-cyan); color:var(--secondary-cyan); margin-bottom:20px; width:auto; padding:8px 20px;" onclick="triggerAvatarUpload()">${t.changePhoto}</button>
+            </div>
+            
+            <div style="text-align:left; margin-top:10px;">
+                <label class="label">${t.langLabel}</label>
+                <select class="select-field" onchange="updateLanguage(this.value)" style="width:100%">
+                    <option value="es" ${currentLang === 'es' ? 'selected' : ''}>Español</option>
+                    <option value="en" ${currentLang === 'en' ? 'selected' : ''}>English</option>
+                </select>
+            </div>
+
+            <hr style="border-color:rgba(255,255,255,0.1); margin: 20px 0;">
+            
+            <div style="text-align:left;">
+                <label class="label">${t.cloudLabel}</label>
+                <div style="max-height:150px; overflow-y:auto; margin-bottom:10px;">
+                    ${savesHtml.length ? savesHtml : '<div style="color:#666; font-size:0.8rem; font-style:italic;">No saves found</div>'}
+                </div>
+                <div class="input-group" style="margin-bottom:0;">
+                    <input id="new-save-name" class="input-field" placeholder="${t.newSavePlaceholder}" style="font-size:0.8rem; padding:8px;">
+                    <button class="btn-modal" style="background:var(--primary-purple); color:#fff; flex:0 0 auto; padding:8px 12px;" onclick="saveDataSet()">${t.saveCloud}</button>
+                </div>
+            </div>
+            
+            <hr style="border-color:rgba(255,255,255,0.1); margin: 20px 0;">
+            <div style="text-align:left;">
+                <label class="label">${t.dataLabel}</label>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-modal" style="border:1px solid #666; font-size:0.7rem;" onclick="triggerImport()">${t.import}</button>
+                    <button class="btn-modal" style="border:1px solid #666; font-size:0.7rem;" onclick="exportData()">${t.export}</button>
+                </div>
+            </div>
+        `;
+        
+        btns.innerHTML = `
+            <button class="btn-modal btn-cancel" onclick="closeModal()">${t.close}</button>
+            <button class="btn-modal btn-withdraw" onclick="handleLogout()">${t.logout}</button>
+        `;
+        document.getElementById('custom-modal').classList.add('active');
+    }
+
+    const video = document.getElementById('bg-video');
+    const mapLayer = document.getElementById('map-layer');
+    const overlay = document.getElementById('data-overlay');
+    const modal = document.getElementById('custom-modal');
+    
+    let isTransitioning = false;
+    let currentSection = null;
+
+    function showCustomAlert(title, message) {
+        const t = translations[currentLang].COMMON;
+        const header = document.getElementById('modal-header');
+        const desc = document.getElementById('modal-desc');
+        const body = document.getElementById('modal-body');
+        const btns = document.getElementById('modal-btns');
+
+        header.innerText = title;
+        desc.innerText = message;
+        body.innerHTML = ''; 
+        btns.innerHTML = `<button class="btn-modal btn-confirm" onclick="closeModal()">${t.accept}</button>`;
+        document.getElementById('custom-modal').classList.add('active');
+    }
+
+    function exportData() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(userState));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "finanzas_miticas_backup.json");
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    }
+
+    function triggerImport() { document.getElementById('file-input').click(); }
+
+    function importData(event) {
+        const t = translations[currentLang].ALERTS;
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const imported = JSON.parse(e.target.result);
+                if(imported.TEMPLE && imported.UNICORN) {
+                    userState = imported;
+                    currentDataSetId = null; // Reset cloud ID on manual import
+                    showCustomAlert("Import", t.importSuccess);
+                    if(currentSection) renderOverlay(currentSection, true);
+                } else { showCustomAlert("Error", t.formatError); }
+            } catch(err) { showCustomAlert("Error", t.readError); }
+        };
+        reader.readAsText(file);
+    }
+
+    function formatMoney(amount, curr) { return `${amount.toLocaleString()} ${curr}`; }
+
+    function generateDiversificationChart(items, categoryKey, valueKey, currencyKey) {
+        if (!items || items.length === 0) return '';
+        const groups = {}; let totalBase = 0;
+        items.forEach(item => {
+            const cat = (item[categoryKey] || 'Otros').trim().toUpperCase();
+            const val = parseFloat(item[valueKey]) || 0;
+            const rate = mockRates[item[currencyKey]] || 1;
+            const baseVal = val * rate;
+            if (!groups[cat]) groups[cat] = 0;
+            groups[cat] += baseVal; totalBase += baseVal;
+        });
+        let gradientParts = []; let currentDeg = 0;
+        const colors = ['#7c4dff', '#00e5ff', '#ff00d4', '#00ff9d', '#ffab40', '#ffffff'];
+        let idx = 0; let legendHTML = '';
+        for (const [cat, val] of Object.entries(groups)) {
+            const pct = (val / totalBase) * 100;
+            const deg = (pct / 100) * 360;
+            const color = colors[idx % colors.length];
+            gradientParts.push(`${color} ${currentDeg}deg ${currentDeg + deg}deg`);
+            legendHTML += `<div class="legend-item"><div class="legend-color" style="background:${color}"></div><span>${cat}</span></div>`;
+            currentDeg += deg; idx++;
+        }
+        const chartStyle = `background: conic-gradient(${gradientParts.join(', ')});`;
+        return `<div class="chart-container" style="flex-direction:column; align-items:center; height:auto;"><div class="chart-donut" style="${chartStyle}"><div class="chart-inner"></div></div><div class="legend-container">${legendHTML}</div></div>`;
+    }
+
+    function generateBarChart(items, labelKey, valueKey, currKey, color) {
+        if (!items || items.length === 0) return '<div style="text-align:center;color:#666;padding:20px;">Sin datos</div>';
+        let maxVal = 0;
+        const normalized = items.map(i => {
+            const r = mockRates[i[currKey]] || 1;
+            const b = i[valueKey] * r;
+            if(b > maxVal) maxVal = b;
+            return { ...i, b };
+        });
+        const bars = normalized.map(i => {
+            const h = (i.b / maxVal) * 100;
+            return `<div class="bar-col"><div class="bar-visual" style="height:${h}%; background:${color};" data-val="${i[valueKey]}"></div><div class="bar-label">${i[labelKey]}</div></div>`;
+        }).join('');
+        return `<div class="chart-container">${bars}</div>`;
+    }
+
+    function addTempleItem() {
+        const desc = document.getElementById('t-desc').value;
+        const val = parseFloat(document.getElementById('t-val').value);
+        const curr = document.getElementById('t-curr').value;
+        const type = document.getElementById('t-type').value;
+        const cat = document.getElementById('t-cat').value;
+        if (desc && !isNaN(val)) { userState.TEMPLE.push({ desc, val, curr, type, cat }); renderOverlay('TEMPLE', true); }
+    }
+    function addGriffinItem() {
+        const name = document.getElementById('g-name').value;
+        const cat = document.getElementById('g-cat').value;
+        const val = parseFloat(document.getElementById('g-val').value);
+        const curr = document.getElementById('g-curr').value;
+        if(name && !isNaN(val)) { userState.GRIFO.push({ name, cat, val, curr }); renderOverlay('GRIFO', true); }
+    }
+    function addDragonItem() {
+        const ticker = document.getElementById('d-ticker').value;
+        const sector = document.getElementById('d-sector').value;
+        const price = parseFloat(document.getElementById('d-price').value);
+        const curr = document.getElementById('d-curr').value;
+        if(ticker && !isNaN(price)) { userState.DRAGON.push({ ticker, sector, price, curr }); renderOverlay('DRAGON', true); }
+    }
+    function addMantiItem() {
+        const name = document.getElementById('m-name').value;
+        const val = parseFloat(document.getElementById('m-val').value);
+        const curr = document.getElementById('m-curr').value;
+        const type = document.getElementById('m-type').value;
+        const cat = document.getElementById('m-cat').value;
+        if(name && !isNaN(val)) { userState.MANTICORA.push({ name, val, curr, type, cat }); renderOverlay('MANTICORA', true); }
+    }
+    function addUnicornItem(sub) {
+        const title = document.getElementById(`u-${sub}-title`).value;
+        const val = parseFloat(document.getElementById(`u-${sub}-val`).value);
+        const curr = document.getElementById(`u-${sub}-curr`).value;
+        if(title && !isNaN(val)) {
+            if(sub==='goals') userState.UNICORN.goals.push({ title, target: val, current: 0, curr });
+            else userState.UNICORN.insurance.push({ title, amount: val, curr });
+            renderOverlay('UNICORN', true);
+        }
+    }
+    function deleteItem(sec, idx, sub=null) {
+        if(sub) userState[sec][sub].splice(idx,1); else userState[sec].splice(idx,1);
+        renderOverlay(sec, true);
+    }
+
+    function openFundModal(idx) {
+        const t = translations[currentLang].COMMON;
+        const tAlert = translations[currentLang].ALERTS;
+        const goal = userState.UNICORN.goals[idx];
+        const header = document.getElementById('modal-header');
+        const desc = document.getElementById('modal-desc');
+        const body = document.getElementById('modal-body');
+        const btns = document.getElementById('modal-btns');
+        let liq = 0;
+        userState.TEMPLE.forEach(t => { if(t.curr === goal.curr) liq += (t.type === 'ingreso' ? t.val : -t.val); });
+        
+        header.innerText = goal.title;
+        const metaLabel = currentLang === 'es' ? 'Meta' : 'Goal';
+        const currLabel = currentLang === 'es' ? 'Actual' : 'Current';
+        const liqLabel = currentLang === 'es' ? 'Liquidez Templo' : 'Temple Liquidity';
+        const amtPlaceholder = currentLang === 'es' ? 'Cantidad' : 'Amount';
+
+        desc.innerHTML = `${metaLabel}: ${formatMoney(goal.target, goal.curr)}<br>${currLabel}: <span style="color:var(--success-green)">${formatMoney(goal.current, goal.curr)}</span><br>${liqLabel}: ${formatMoney(liq, goal.curr)}`;
+        body.innerHTML = `<input type="number" id="modal-input" class="input-field" placeholder="${amtPlaceholder}" style="text-align:center; font-size:1.2rem;">`;
+        btns.innerHTML = `<button class="btn-modal btn-cancel" onclick="closeModal()">${t.cancel}</button><button class="btn-modal btn-withdraw" onclick="processFund(${idx}, false, ${liq})">${t.withdraw}</button><button class="btn-modal btn-confirm" onclick="processFund(${idx}, true, ${liq})">${t.fund}</button>`;
+        document.getElementById('custom-modal').classList.add('active');
+    }
+
+    function closeModal() { document.getElementById('custom-modal').classList.remove('active'); }
+
+    function processFund(idx, isDeposit, liq) {
+        const t = translations[currentLang].ALERTS;
+        const amt = parseFloat(document.getElementById('modal-input').value);
+        const goal = userState.UNICORN.goals[idx];
+        if(isNaN(amt) || amt <= 0) return showCustomAlert("Error", t.amountInvalid);
+        if(isDeposit) {
+            if(amt > liq) return showCustomAlert("Error", t.noLiquidity);
+            if(goal.current + amt > goal.target) return showCustomAlert("Error", t.goalExceeded);
+            userState.TEMPLE.push({ desc: `${t.funding}: ${goal.title}`, val: amt, curr: goal.curr, type: 'gasto', cat: 'Ahorro' });
+            goal.current += amt;
+        } else {
+            if(amt > goal.current) return showCustomAlert("Error", t.withdrawLimit);
+            userState.TEMPLE.push({ desc: `${t.withdrawal}: ${goal.title}`, val: amt, curr: goal.curr, type: 'ingreso', cat: 'Ahorro' });
+            goal.current -= amt;
+        }
+        closeModal();
+        renderOverlay('UNICORN', true);
+    }
+
+    function renderOverlay(id, skipVideo = false) {
+        currentSection = id;
+        const tSec = translations[currentLang][id]; 
+        const tCommon = translations[currentLang].COMMON;
+        const vidFile = uiConfig[id].video;
+        let content = '';
+
+        if (id === 'TEMPLE') {
+            const list = userState.TEMPLE.map((i,idx) => `<div class="list-row"><div><div>${i.desc}</div><small style="color:var(--text-muted)">${i.cat}</small></div><div style="display:flex;align-items:center"><span style="color:${i.type=='ingreso'?'var(--success-green)':'var(--danger-red)'}">${i.type=='ingreso'?'+':'-'}${formatMoney(i.val,i.curr)}</span><span class="row-del" onclick="deleteItem('TEMPLE',${idx})">&times;</span></div></div>`).join('');
+            let balance = 0; 
+            userState.TEMPLE.forEach(i => balance += (i.type=='ingreso'?i.val* (mockRates[i.curr]||1) : -i.val* (mockRates[i.curr]||1)));
+            content = `
+            <div class="card card-wide"><span class="label">${tSec.labels.new}</span><div class="input-group"><input id="t-desc" class="input-field" placeholder="${tSec.placeholders.desc}"><input id="t-cat" class="input-field" placeholder="${tSec.placeholders.cat}"></div><div class="input-group"><select id="t-type" class="select-field"><option value="ingreso">${tSec.options.inc}</option><option value="gasto">${tSec.options.exp}</option></select><input type="number" id="t-val" class="input-field" placeholder="0.00"><select id="t-curr" class="select-field">${currencyOptions}</select></div><button class="btn-add" onclick="addTempleItem()">${tSec.btns.save}</button><div class="metric-box"><div class="metric-val" style="color:${balance>=0?'var(--success-green)':'var(--danger-red)'}">${balance>=0?'+':''}${Math.round(balance)} ${tCommon.est}</div></div></div>
+            <div class="card card-tall"><span class="label">${tSec.labels.history}</span><div class="item-list">${list}</div></div>`;
+        }
+        else if(id === 'GRIFO') {
+            const list = userState.GRIFO.map((i,idx) => `<div class="list-row"><div>${i.name}<br><small>${i.cat}</small></div><div>${formatMoney(i.val,i.curr)}<span class="row-del" onclick="deleteItem('GRIFO',${idx})">&times;</span></div></div>`).join('');
+            content = `<div class="card card-wide"><span class="label">${tSec.labels.active}</span><div class="input-group"><input id="g-name" class="input-field" placeholder="${tSec.placeholders.name}"><input id="g-cat" class="input-field" placeholder="${tSec.placeholders.cat}"></div><div class="input-group"><input type="number" id="g-val" class="input-field" placeholder="${tSec.placeholders.val}"><select id="g-curr" class="select-field">${currencyOptions}</select></div><button class="btn-add" onclick="addGriffinItem()">${tSec.btns.add}</button></div><div class="card card-tall"><span class="label">${tSec.labels.inv}</span><div class="item-list">${list}</div></div><div class="card"><span class="label">${tSec.labels.div}</span>${generateDiversificationChart(userState.GRIFO,'cat','val','curr')}</div>`;
+        }
+        else if(id === 'DRAGON') {
+             const list = userState.DRAGON.map((i,idx) => `<div class="list-row"><div><b>${i.ticker}</b> (${i.sector})</div><div>${formatMoney(i.price,i.curr)}<span class="row-del" onclick="deleteItem('DRAGON',${idx})">&times;</span></div></div>`).join('');
+             content = `<div class="card card-wide"><span class="label">${tSec.labels.pos}</span><div class="input-group"><input id="d-ticker" class="input-field" placeholder="${tSec.placeholders.tick}"><input id="d-sector" class="input-field" placeholder="${tSec.placeholders.sec}"></div><div class="input-group"><input type="number" id="d-price" class="input-field" placeholder="${tSec.placeholders.price}"><select id="d-curr" class="select-field">${currencyOptions}</select></div><button class="btn-add" onclick="addDragonItem()">${tSec.btns.add}</button></div><div class="card card-tall"><span class="label">${tSec.labels.port}</span><div class="item-list">${list}</div></div><div class="card"><span class="label">${tSec.labels.sec}</span>${generateDiversificationChart(userState.DRAGON,'sector','price','curr')}</div>`;
+        }
+        else if(id === 'UNICORN') {
+             const goals = userState.UNICORN.goals.map((i,idx) => {
+                 const pct = Math.min(100, (i.current/i.target)*100);
+                 return `<div style="margin-bottom:15px; background:rgba(255,255,255,0.05); padding:10px; border-radius:4px;"><div style="display:flex;justify-content:space-between"><b>${i.title}</b><span onclick="deleteItem('UNICORN',${idx},'goals')" style="color:var(--danger-red);cursor:pointer;">&times;</span></div><div style="font-size:0.8rem; margin:5px 0;">${formatMoney(i.current,i.curr)} / ${formatMoney(i.target,i.curr)}</div><div style="background:#333;height:4px;border-radius:2px;"><div style="width:${pct}%;background:var(--secondary-cyan);height:100%"></div></div><button class="btn-fund" style="margin-top:8px; width:100%;" onclick="openFundModal(${idx})">${tSec.btns.manage}</button></div>`;
+             }).join('');
+             const ins = userState.UNICORN.insurance.map((i,idx) => `<div class="list-row"><div>${i.title}</div><div>${formatMoney(i.amount,i.curr)}<span class="row-del" onclick="deleteItem('UNICORN',${idx},'insurance')">&times;</span></div></div>`).join('');
+             content = `<div class="card card-wide"><span class="label">${tSec.labels.new}</span><div class="input-group"><input id="u-goals-title" class="input-field" placeholder="${tSec.placeholders.title}"><input type="number" id="u-goals-val" class="input-field" placeholder="${tSec.placeholders.goal}"><select id="u-goals-curr" class="select-field" style="min-width:60px;">${currencyOptions}</select></div><button class="btn-add" onclick="addUnicornItem('goals')">${tSec.btns.create}</button><div class="item-list">${goals}</div></div><div class="card card-wide"><span class="label">${tSec.labels.ins}</span><div class="input-group"><input id="u-insurance-title" class="input-field" placeholder="${tSec.placeholders.insName}"><input type="number" id="u-insurance-val" class="input-field" placeholder="${tSec.placeholders.cost}"><select id="u-insurance-curr" class="select-field" style="min-width:60px;">${currencyOptions}</select></div><button class="btn-add" onclick="addUnicornItem('insurance')">${tSec.btns.add}</button><div class="item-list">${ins}</div></div>`;
+        }
+        else if(id === 'MANTICORA') {
+             const items = userState.MANTICORA;
+             const list = items.map((i,idx) => `<div class="list-row"><div><span style="color:${i.type=='deuda'?'var(--danger-red)':'var(--warning-orange)'}">[${i.type.substr(0,1).toUpperCase()}]</span> ${i.name}</div><div>${formatMoney(i.val,i.curr)}<span class="row-del" onclick="deleteItem('MANTICORA',${idx})">&times;</span></div></div>`).join('');
+             const deudas = items.filter(i=>i.type=='deuda');
+             const subs = items.filter(i=>i.type=='suscripcion');
+             content = `<div class="card card-wide"><span class="label">${tSec.labels.new}</span><div class="input-group"><input id="m-name" class="input-field" placeholder="${tSec.placeholders.name}"><input id="m-cat" class="input-field" placeholder="${tSec.placeholders.cat}"></div><div class="input-group"><select id="m-type" class="select-field"><option value="suscripcion">${tSec.options.sub}</option><option value="deuda">${tSec.options.debt}</option></select><input type="number" id="m-val" class="input-field" placeholder="${tSec.placeholders.val}"><select id="m-curr" class="select-field">${currencyOptions}</select></div><button class="btn-add" onclick="addMantiItem()">${tSec.btns.reg}</button></div><div class="card card-tall"><span class="label">${tSec.labels.list}</span><div class="item-list">${list}</div></div><div class="card"><span class="label">${tSec.labels.total}</span>${generateBarChart(deudas,'name','val','curr','var(--danger-red)')}</div><div class="card"><span class="label">${tSec.labels.subs}</span>${generateBarChart(subs,'name','val','curr','var(--warning-orange)')}</div>`;
+        }
+
+        overlay.innerHTML = `
+            <div class="dashboard-grid">
+                <div class="card card-header fade-in-up">
+                    <div style="flex-grow:1"><span class="label">${tCommon.langLabel}</span><h1 style="margin:0; font-size: 1.2rem;">${tSec.title}</h1><small style="color:var(--text-muted)">${tSec.subtitle}</small></div>
+                    <button class="back-btn" onclick="secureReverse()">${tCommon.close}</button>
+                </div>
+                ${content}
+            </div>`;
+
+        if (!skipVideo) {
+            video.src = vidFile;
+            video.currentTime = 0;
+            video.classList.add('active');
+            video.play().then(() => {
+                mapLayer.style.opacity = '0';
+                setTimeout(() => mapLayer.classList.add('layer-hidden'), 500);
+                video.onended = () => { if (!isTransitioning) overlay.classList.add('active'); };
+            }).catch(() => overlay.classList.add('active'));
+        }
+    }
+
+    function startExperience(id) { if(isTransitioning) return; hideHover(); renderOverlay(id); }
+    function secureReverse() {
+        if(isTransitioning) return;
+        isTransitioning = true;
+        overlay.classList.remove('active');
+        video.pause();
+        const rewindStep = () => {
+            if(video.currentTime > 0) {
+                video.currentTime = Math.max(0, video.currentTime - 0.1); 
+                requestAnimationFrame(rewindStep);
+            } else { finishReverse(); }
+        };
+        setTimeout(rewindStep, 300);
+    }
+    function finishReverse() {
+        mapLayer.classList.remove('layer-hidden'); void mapLayer.offsetWidth; mapLayer.style.opacity = '1';
+        video.classList.remove('active'); setTimeout(() => { video.src = ""; isTransitioning = false; currentSection = null; }, 500);
+    }
+
+    function updateHover(id) { }
+    function hideHover() {} 
+    
+    function resizeMap() {
+        const images = document.querySelectorAll('.responsive-map-img');
+        images.forEach(img => {
+            if (img.offsetParent === null) return; 
+            const mapName = img.getAttribute('usemap').replace('#', '');
+            const map = document.querySelector(`map[name="${mapName}"]`);
+            if (!map) return;
+            const areas = map.getElementsByTagName('area');
+            if (!img.dataset.orC) { 
+                img.dataset.orC = JSON.stringify(Array.from(areas).map(a => a.coords)); 
+                img.dataset.orW = img.naturalWidth || 1920; 
+                img.dataset.orH = img.naturalHeight || 1080; 
+            }
+            if (!img.naturalWidth) return;
+            const scX = img.width / img.dataset.orW;
+            const scY = img.height / img.dataset.orH;
+            const coords = JSON.parse(img.dataset.orC);
+            for(let i=0; i<areas.length; i++) {
+                areas[i].coords = coords[i].split(',').map((c,idx) => 
+                    idx % 2 === 0 ? Math.round(c * scX) : Math.round(c * scY)
+                ).join(',');
+            }
+        });
+    }
+
+    window.onload = () => { 
+        resizeMap();
+        initAuth(); // START AUTH CHECK
+        window.addEventListener('resize', resizeMap); 
+        document.querySelectorAll('.responsive-map-img').forEach(img => {
+            if(img.complete) resizeMap(); else img.onload = resizeMap;
+        });
+    };
+</script>
+</body>
+</html>
