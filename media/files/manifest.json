@@ -2,7 +2,7 @@
   "name": "Finanzas Míticas",
   "short_name": "Míticas",
   "description": "Explorador de finanzas y activos con estética mítica.",
-  "start_url": "./index.html",
+  "start_url": "Finanzas.html",
   "display": "standalone",
   "background_color": "#020205",
   "theme_color": "#020205",
